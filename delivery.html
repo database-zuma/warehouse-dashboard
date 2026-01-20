@@ -717,7 +717,7 @@
             showLoading(true);
             
             try {
-                const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A2:N5000?key=${API_KEY}`;
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A2:O5000?key=${API_KEY}`;
                 const response = await fetch(url);
                 
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -742,8 +742,9 @@
                         qtyLJBB: parseInt(String(row[9] || '0').replace(/,/g, '')) || 0,
                         qtyMBB: parseInt(String(row[10] || '0').replace(/,/g, '')) || 0,
                         qtyTotal: parseInt(String(row[11] || '0').replace(/,/g, '')) || 0,
-                        sla: parseInt(row[12]) || 0,
-                        rimaks: (row[13] || '').trim()
+                        kodeSegel: (row[12] || '').trim(),
+                        sla: parseInt(row[13]) || 0,
+                        rimaks: (row[14] || '').trim()
                     }))
                     .filter(item => item.tujuan || item.planDate);
                 
