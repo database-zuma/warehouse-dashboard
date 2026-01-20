@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZUMA Cycle Count - Stock Opname</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .zuma-dark { background: #002A3A; }
+        .zuma-green { background: #00E273; }
+        .zuma-green-text { color: #00E273; }
+        .slow-moving { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+        .fast-moving { background: linear-gradient(135deg, #d1fae5 0%, #6ee7b7 100%); }
+        .turnover { background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%); }
+        .random-pick { background: linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%); }
+        .input-fisik:focus { box-shadow: 0 0 0 3px rgba(0, 226, 115, 0.3); }
+        .selisih-plus { color: #10b981; background: #d1fae5; }
+        .selisih-minus { color: #ef4444; background: #fee2e2; }
+        .selisih-match { color: #6b7280; background: #f3f4f6; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="zuma-dark text-white shadow-lg sticky top-0 z-40">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                        <span class="text-sm">Dashboard</span>
+                    </a>
+                    <div class="h-6 w-px bg-gray-600"></div>
+                    <h1 class="text-xl font-bold">📋 Cycle Count</h1>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span id="currentDate" class="text-sm text-gray-300"></span>
+                    <span id="dayIndicator" class="px-3 py-1 rounded-full text-xs font-medium bg-green-500 text-white"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- Info Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-yellow-500">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-yellow-100">🐢</div>
+                    <div>
+                        <p class="text-2xl font-bold text-yellow-600" id="slowCount">0</p>
+                        <p class="text-xs text-gray-500">Slow Moving (20%)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-green-100">🚀</div>
+                    <div>
+                        <p class="text-2xl font-bold text-green-600" id="fastCount">0</p>
+                        <p class="text-xs text-gray-500">Fast Moving (40%)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-500">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-blue-100">🔄</div>
+                    <div>
+                        <p class="text-2xl font-bold text-blue-600" id="turnoverCount">0</p>
+                        <p class="text-xs text-gray-500">Turnover Tinggi (25%)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-500">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-purple-100">🎲</div>
+                    <div>
+                        <p class="text-2xl font-bold text-purple-600" id="randomCount">0</p>
+                        <p class="text-xs text-gray-500">Random (15%)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Petugas & Generate Section -->
+        <div class="bg-white rounded-xl p-6 shadow-sm mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">👤 Nama Petugas</label>
+                    <input type="text" id="petugasName" placeholder="Masukkan nama petugas..." 
+                        class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">📅 Tanggal Cycle Count</label>
+                    <input type="date" id="cycleDate" 
+                        class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                </div>
+                <div>
+                    <button onclick="generateCycleCount()" id="btnGenerate"
+                        class="w-full zuma-dark text-white py-3 px-6 rounded-lg font-medium hover:opacity-90 transition flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Generate Artikel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="hidden">
+            <div class="bg-white rounded-xl p-8 shadow-sm text-center">
+                <div class="animate-spin w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p class="text-gray-600">Menganalisis data transaksi & memilih artikel...</p>
+            </div>
+        </div>
+
+        <!-- Cycle Count Form -->
+        <div id="cycleCountForm" class="hidden">
+            <!-- Instruction -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                <div class="flex gap-3">
+                    <div class="text-2xl">💡</div>
+                    <div>
+                        <h4 class="font-semibold text-blue-800">Petunjuk Pengisian</h4>
+                        <p class="text-sm text-blue-600 mt-1">Input jumlah box fisik untuk setiap entitas (DDD/LJBB/MBB). Sistem akan otomatis menghitung selisih.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-800 text-white">
+                            <tr>
+                                <th class="py-3 px-4 text-left text-sm font-semibold">No</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold">Kategori</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold">Kode</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold">Nama Artikel</th>
+                                <th class="py-3 px-4 text-center text-sm font-semibold" colspan="3">DDD</th>
+                                <th class="py-3 px-4 text-center text-sm font-semibold" colspan="3">LJBB</th>
+                                <th class="py-3 px-4 text-center text-sm font-semibold" colspan="3">MBB</th>
+                                <th class="py-3 px-4 text-center text-sm font-semibold" colspan="3">TOTAL</th>
+                            </tr>
+                            <tr class="bg-gray-700 text-white text-xs">
+                                <th></th>
+                                <th></th>
+                                <th></th>
+                                <th></th>
+                                <th class="py-2 px-2 text-center">Sistem</th>
+                                <th class="py-2 px-2 text-center">Fisik</th>
+                                <th class="py-2 px-2 text-center">Selisih</th>
+                                <th class="py-2 px-2 text-center">Sistem</th>
+                                <th class="py-2 px-2 text-center">Fisik</th>
+                                <th class="py-2 px-2 text-center">Selisih</th>
+                                <th class="py-2 px-2 text-center">Sistem</th>
+                                <th class="py-2 px-2 text-center">Fisik</th>
+                                <th class="py-2 px-2 text-center">Selisih</th>
+                                <th class="py-2 px-2 text-center">Sistem</th>
+                                <th class="py-2 px-2 text-center">Fisik</th>
+                                <th class="py-2 px-2 text-center">Selisih</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cycleCountBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Summary & Actions -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Accuracy Summary -->
+                <div class="bg-white rounded-xl p-6 shadow-sm">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Ringkasan Akurasi</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="text-center p-4 bg-gray-50 rounded-lg">
+                            <p class="text-3xl font-bold" id="accuracyGlobal">-</p>
+                            <p class="text-sm text-gray-500">Akurasi Global</p>
+                        </div>
+                        <div class="text-center p-4 bg-gray-50 rounded-lg">
+                            <p class="text-3xl font-bold" id="matchCount">-</p>
+                            <p class="text-sm text-gray-500">Artikel Match</p>
+                        </div>
+                        <div class="text-center p-4 bg-green-50 rounded-lg">
+                            <p class="text-2xl font-bold text-green-600" id="accuracyDDD">-</p>
+                            <p class="text-sm text-gray-500">Akurasi DDD</p>
+                        </div>
+                        <div class="text-center p-4 bg-green-50 rounded-lg">
+                            <p class="text-2xl font-bold text-green-600" id="accuracyLJBB">-</p>
+                            <p class="text-sm text-gray-500">Akurasi LJBB</p>
+                        </div>
+                        <div class="text-center p-4 bg-orange-50 rounded-lg col-span-2">
+                            <p class="text-2xl font-bold text-orange-600" id="accuracyMBB">-</p>
+                            <p class="text-sm text-gray-500">Akurasi MBB</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selisih Chart -->
+                <div class="bg-white rounded-xl p-6 shadow-sm">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">📈 Distribusi Selisih</h3>
+                    <canvas id="selisihChart" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap gap-4 justify-center">
+                <button onclick="calculateResults()" 
+                    class="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    Hitung Hasil
+                </button>
+                <button onclick="saveToSheet()" id="btnSave"
+                    class="px-6 py-3 zuma-green text-gray-900 rounded-lg font-medium hover:opacity-90 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                    </svg>
+                    Simpan ke Google Sheets
+                </button>
+                <button onclick="exportExcel()" 
+                    class="px-6 py-3 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Export Excel
+                </button>
+                <button onclick="resetForm()" 
+                    class="px-6 py-3 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 transition flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- History Section -->
+        <div class="bg-white rounded-xl p-6 shadow-sm mt-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">📜 Riwayat Cycle Count</h3>
+                <button onclick="loadHistory()" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+            <div id="historySection">
+                <p class="text-gray-400 text-center py-8">Riwayat akan ditampilkan setelah terhubung ke Google Sheets</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="zuma-dark text-white py-4 mt-8">
+        <div class="container mx-auto px-4 text-center text-sm text-gray-400">
+            ZUMA Cycle Count v2.2 | Stock Opname System
+        </div>
+    </footer>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4 text-center">
+            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Berhasil Disimpan!</h3>
+            <p class="text-gray-600 mb-6">Data cycle count telah tersimpan ke Google Sheets</p>
+            <button onclick="closeSuccessModal()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                OK
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        const SPREADSHEET_ID = '1CLbpcsBiN8GsC2RbiKMN73rlTdLjriQucXhD-LoGlq4';
+        const API_KEY = 'AIzaSyBLmrYiydwSWdipHjUUnpXuC4Ruc_fEB7A';
+        
+        // Google Apps Script Web App URL
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxu98XE0SVgLHtWIQDwoRuxFiilEPm_v_dWFcTUJ_rXB7PT2jGiD8GmJSr3gELnS_qeCw/exec';
+        
+        const SHEETS = {
+            REKAPAN: 'Rekapan Box',
+            TRANSAKSI_DDD: 'Transaksi DDD',
+            TRANSAKSI_LJBB: 'Transaksi LJBB',
+            TRANSAKSI_MBB: 'Transaksi MBB'
+        };
+
+        // Distribution config
+        const TOTAL_ARTICLES = 10;
+        const DISTRIBUTION = {
+            slow: Math.round(TOTAL_ARTICLES * 0.20),      // 2
+            fast: Math.round(TOTAL_ARTICLES * 0.40),      // 4
+            turnover: Math.round(TOTAL_ARTICLES * 0.25),  // 2-3
+            random: Math.round(TOTAL_ARTICLES * 0.15)     // 1-2
+        };
+
+        // ==========================================
+        // STATE
+        // ==========================================
+        let stockData = {
+            articles: [],
+            transaksiIn: [],
+            transaksiOut: [],
+            categorizedArticles: {
+                slow: [],
+                fast: [],
+                turnover: [],
+                all: []
+            }
+        };
+        
+        let selectedArticles = [];
+        let cycleCountResults = [];
+
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set current date
+            const today = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('currentDate').textContent = today.toLocaleDateString('id-ID', options);
+            
+            // Set date input
+            document.getElementById('cycleDate').valueAsDate = today;
+            
+            // Check if today is Friday or Saturday
+            const day = today.getDay();
+            const dayIndicator = document.getElementById('dayIndicator');
+            if (day === 5) {
+                dayIndicator.textContent = '✓ Jumat - Hari Cycle Count';
+                dayIndicator.className = 'px-3 py-1 rounded-full text-xs font-medium bg-green-500 text-white';
+            } else if (day === 6) {
+                dayIndicator.textContent = '✓ Sabtu - Hari Cycle Count';
+                dayIndicator.className = 'px-3 py-1 rounded-full text-xs font-medium bg-green-500 text-white';
+            } else {
+                dayIndicator.textContent = 'Bukan hari Cycle Count';
+                dayIndicator.className = 'px-3 py-1 rounded-full text-xs font-medium bg-gray-500 text-white';
+            }
+            
+            // Load history
+            loadHistory();
+        });
+
+        // ==========================================
+        // DATA FETCHING
+        // ==========================================
+        async function fetchSheetData(sheetName, range) {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!${range}?key=${API_KEY}`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                return data.values || [];
+            } catch (error) {
+                console.error(`Error fetching ${sheetName}:`, error);
+                return [];
+            }
+        }
+
+        function parseNumber(value) {
+            if (!value) return 0;
+            const str = value.toString().replace(/\./g, '').replace(',', '.').trim();
+            const num = parseFloat(str);
+            return isNaN(num) ? 0 : num;
+        }
+
+        // ==========================================
+        // GENERATE CYCLE COUNT
+        // ==========================================
+        async function generateCycleCount() {
+            const petugas = document.getElementById('petugasName').value.trim();
+            if (!petugas) {
+                alert('Mohon isi nama petugas terlebih dahulu!');
+                return;
+            }
+
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('cycleCountForm').classList.add('hidden');
+
+            try {
+                // Fetch stock data
+                const rekapanData = await fetchSheetData(SHEETS.REKAPAN, 'A7:J1000');
+                
+                // Fetch transaction data
+                const [transDDD, transLJBB, transMBB] = await Promise.all([
+                    fetchSheetData(SHEETS.TRANSAKSI_DDD, 'A2:H5000'),
+                    fetchSheetData(SHEETS.TRANSAKSI_LJBB, 'A2:H5000'),
+                    fetchSheetData(SHEETS.TRANSAKSI_MBB, 'A2:H5000')
+                ]);
+
+                // Parse stock data
+                parseStockData(rekapanData);
+                
+                // Parse and analyze transactions
+                analyzeTransactions(transDDD, transLJBB, transMBB);
+                
+                // Categorize articles
+                categorizeArticles();
+                
+                // Select random articles based on distribution
+                selectArticles();
+                
+                // Render form
+                renderCycleCountForm();
+
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('cycleCountForm').classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Error generating cycle count:', error);
+                alert('Terjadi kesalahan saat mengambil data. Silakan coba lagi.');
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+
+        function parseStockData(data) {
+            stockData.articles = [];
+            
+            data.forEach(row => {
+                if (!row || row.length < 8) return;
+                
+                const kode = row[1] ? row[1].toString().trim() : '';
+                if (!kode || kode.toLowerCase().includes('kode')) return;
+                
+                stockData.articles.push({
+                    kode: kode,
+                    nama: row[2] ? row[2].toString() : '',
+                    tier: parseNumber(row[3]),
+                    boxDDD: parseNumber(row[4]),
+                    boxLJBB: parseNumber(row[5]),
+                    boxMBB: parseNumber(row[6]),
+                    total: parseNumber(row[7]),
+                    pairs: parseNumber(row[8]),
+                    transIn: 0,
+                    transOut: 0,
+                    turnoverScore: 0
+                });
+            });
+        }
+
+        function analyzeTransactions(transDDD, transLJBB, transMBB) {
+            // Combine all transactions
+            const allTrans = [...transDDD, ...transLJBB, ...transMBB];
+            
+            // Count transactions per article
+            // Column structure: A=No(0), B=Tanggal(1), C=Artikel(2), D=Nama(3), E=TrxIN(4), F=TrxOUT(5), G=GudangAsal(6), H=GudangTerima(7)
+            const transCount = {};
+            
+            allTrans.forEach(row => {
+                if (!row || row.length < 6) return;
+                
+                const kode = row[2] ? row[2].toString().trim() : ''; // Column C = Artikel/Kode
+                if (!kode || kode.toLowerCase().includes('artikel') || kode.toLowerCase().includes('kode')) return;
+                
+                const qtyIn = parseNumber(row[4]);  // Column E = Transaksi IN
+                const qtyOut = parseNumber(row[5]); // Column F = Transaksi OUT
+                
+                if (!transCount[kode]) {
+                    transCount[kode] = { in: 0, out: 0, total: 0 };
+                }
+                
+                transCount[kode].in += qtyIn;
+                transCount[kode].out += qtyOut;
+                transCount[kode].total += qtyIn + qtyOut;
+            });
+            
+            // Update articles with transaction data
+            stockData.articles.forEach(article => {
+                const trans = transCount[article.kode];
+                if (trans) {
+                    article.transIn = trans.in;
+                    article.transOut = trans.out;
+                    article.turnoverScore = trans.total;
+                }
+            });
+        }
+
+        function categorizeArticles() {
+            // Filter articles with stock
+            const withStock = stockData.articles.filter(a => a.total > 0);
+            
+            // Sort by OUT (ascending = slow moving)
+            const byOut = [...withStock].sort((a, b) => a.transOut - b.transOut);
+            
+            // Sort by OUT (descending = fast moving)
+            const byOutDesc = [...withStock].sort((a, b) => b.transOut - a.transOut);
+            
+            // Sort by turnover score (descending)
+            const byTurnover = [...withStock].sort((a, b) => b.turnoverScore - a.turnoverScore);
+            
+            // Get percentiles
+            const slowThreshold = Math.ceil(withStock.length * 0.3);
+            const fastThreshold = Math.ceil(withStock.length * 0.3);
+            const turnoverThreshold = Math.ceil(withStock.length * 0.3);
+            
+            stockData.categorizedArticles = {
+                slow: byOut.slice(0, slowThreshold),
+                fast: byOutDesc.slice(0, fastThreshold),
+                turnover: byTurnover.slice(0, turnoverThreshold),
+                all: withStock
+            };
+            
+            console.log('Categorized:', {
+                slow: stockData.categorizedArticles.slow.length,
+                fast: stockData.categorizedArticles.fast.length,
+                turnover: stockData.categorizedArticles.turnover.length,
+                all: stockData.categorizedArticles.all.length
+            });
+        }
+
+        function selectArticles() {
+            selectedArticles = [];
+            const usedKodes = new Set();
+            
+            // Helper to pick random from array (with duplicate check)
+            function pickRandom(arr, count, category) {
+                // Filter out already used articles
+                const available = arr.filter(a => !usedKodes.has(a.kode));
+                
+                if (available.length === 0) return 0;
+                
+                // Shuffle
+                const shuffled = [...available].sort(() => Math.random() - 0.5);
+                
+                // Pick up to count items
+                let picked = 0;
+                for (let i = 0; i < shuffled.length && picked < count; i++) {
+                    const article = shuffled[i];
+                    
+                    // Double check not already used
+                    if (!usedKodes.has(article.kode)) {
+                        usedKodes.add(article.kode);
+                        selectedArticles.push({ ...article, category });
+                        picked++;
+                    }
+                }
+                
+                return picked;
+            }
+            
+            // Pick from each category in order
+            pickRandom(stockData.categorizedArticles.slow, DISTRIBUTION.slow, 'slow');
+            pickRandom(stockData.categorizedArticles.fast, DISTRIBUTION.fast, 'fast');
+            pickRandom(stockData.categorizedArticles.turnover, DISTRIBUTION.turnover, 'turnover');
+            
+            // Fill remaining with random (from articles not yet selected)
+            const remaining = TOTAL_ARTICLES - selectedArticles.length;
+            if (remaining > 0) {
+                pickRandom(stockData.categorizedArticles.all, remaining, 'random');
+            }
+            
+            // Final validation - remove any duplicates that might have slipped through
+            const finalArticles = [];
+            const finalKodes = new Set();
+            selectedArticles.forEach(article => {
+                if (!finalKodes.has(article.kode)) {
+                    finalKodes.add(article.kode);
+                    finalArticles.push(article);
+                }
+            });
+            selectedArticles = finalArticles;
+            
+            // Update counts
+            document.getElementById('slowCount').textContent = selectedArticles.filter(a => a.category === 'slow').length;
+            document.getElementById('fastCount').textContent = selectedArticles.filter(a => a.category === 'fast').length;
+            document.getElementById('turnoverCount').textContent = selectedArticles.filter(a => a.category === 'turnover').length;
+            document.getElementById('randomCount').textContent = selectedArticles.filter(a => a.category === 'random').length;
+            
+            console.log('Selected articles:', selectedArticles.length, 'unique');
+            console.log('Kodes:', [...finalKodes]);
+        }
+
+        // ==========================================
+        // RENDER FORM
+        // ==========================================
+        function renderCycleCountForm() {
+            const tbody = document.getElementById('cycleCountBody');
+            tbody.innerHTML = '';
+            
+            const categoryStyles = {
+                slow: { bg: 'slow-moving', label: '🐢 Slow', color: 'text-yellow-700' },
+                fast: { bg: 'fast-moving', label: '🚀 Fast', color: 'text-green-700' },
+                turnover: { bg: 'turnover', label: '🔄 Turnover', color: 'text-blue-700' },
+                random: { bg: 'random-pick', label: '🎲 Random', color: 'text-purple-700' }
+            };
+            
+            selectedArticles.forEach((article, index) => {
+                const style = categoryStyles[article.category];
+                const row = document.createElement('tr');
+                row.className = `border-b hover:bg-gray-50 ${index % 2 === 0 ? 'bg-gray-50' : ''}`;
+                row.innerHTML = `
+                    <td class="py-3 px-4 text-sm font-medium">${index + 1}</td>
+                    <td class="py-2 px-2">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${style.bg} ${style.color}">${style.label}</span>
+                    </td>
+                    <td class="py-3 px-4 text-sm font-medium text-blue-600">${article.kode}</td>
+                    <td class="py-3 px-4 text-sm">${article.nama}</td>
+                    
+                    <!-- DDD -->
+                    <td class="py-2 px-2 text-center text-sm bg-blue-50">${article.boxDDD}</td>
+                    <td class="py-2 px-1 bg-blue-50">
+                        <input type="number" min="0" class="input-fisik w-16 px-2 py-1 border rounded text-center text-sm" 
+                            data-index="${index}" data-entity="DDD" onchange="updateSelisih(${index})">
+                    </td>
+                    <td class="py-2 px-2 text-center text-sm bg-blue-50" id="selisih-${index}-DDD">-</td>
+                    
+                    <!-- LJBB -->
+                    <td class="py-2 px-2 text-center text-sm bg-green-50">${article.boxLJBB}</td>
+                    <td class="py-2 px-1 bg-green-50">
+                        <input type="number" min="0" class="input-fisik w-16 px-2 py-1 border rounded text-center text-sm" 
+                            data-index="${index}" data-entity="LJBB" onchange="updateSelisih(${index})">
+                    </td>
+                    <td class="py-2 px-2 text-center text-sm bg-green-50" id="selisih-${index}-LJBB">-</td>
+                    
+                    <!-- MBB -->
+                    <td class="py-2 px-2 text-center text-sm bg-orange-50">${article.boxMBB}</td>
+                    <td class="py-2 px-1 bg-orange-50">
+                        <input type="number" min="0" class="input-fisik w-16 px-2 py-1 border rounded text-center text-sm" 
+                            data-index="${index}" data-entity="MBB" onchange="updateSelisih(${index})">
+                    </td>
+                    <td class="py-2 px-2 text-center text-sm bg-orange-50" id="selisih-${index}-MBB">-</td>
+                    
+                    <!-- TOTAL -->
+                    <td class="py-2 px-2 text-center text-sm font-semibold bg-gray-100">${article.total}</td>
+                    <td class="py-2 px-2 text-center text-sm font-semibold bg-gray-100" id="fisik-total-${index}">-</td>
+                    <td class="py-2 px-2 text-center text-sm font-semibold bg-gray-100" id="selisih-total-${index}">-</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateSelisih(index) {
+            const article = selectedArticles[index];
+            
+            // Get input values
+            const fisikDDD = parseInt(document.querySelector(`input[data-index="${index}"][data-entity="DDD"]`).value) || 0;
+            const fisikLJBB = parseInt(document.querySelector(`input[data-index="${index}"][data-entity="LJBB"]`).value) || 0;
+            const fisikMBB = parseInt(document.querySelector(`input[data-index="${index}"][data-entity="MBB"]`).value) || 0;
+            
+            // Calculate selisih
+            const selisihDDD = fisikDDD - article.boxDDD;
+            const selisihLJBB = fisikLJBB - article.boxLJBB;
+            const selisihMBB = fisikMBB - article.boxMBB;
+            
+            const fisikTotal = fisikDDD + fisikLJBB + fisikMBB;
+            const selisihTotal = fisikTotal - article.total;
+            
+            // Update display
+            updateSelisihCell(`selisih-${index}-DDD`, selisihDDD);
+            updateSelisihCell(`selisih-${index}-LJBB`, selisihLJBB);
+            updateSelisihCell(`selisih-${index}-MBB`, selisihMBB);
+            
+            document.getElementById(`fisik-total-${index}`).textContent = fisikTotal;
+            updateSelisihCell(`selisih-total-${index}`, selisihTotal);
+        }
+
+        function updateSelisihCell(elementId, value) {
+            const cell = document.getElementById(elementId);
+            if (value === 0) {
+                cell.textContent = '0';
+                cell.className = 'py-2 px-2 text-center text-sm selisih-match rounded';
+            } else if (value > 0) {
+                cell.textContent = '+' + value;
+                cell.className = 'py-2 px-2 text-center text-sm selisih-plus rounded font-medium';
+            } else {
+                cell.textContent = value;
+                cell.className = 'py-2 px-2 text-center text-sm selisih-minus rounded font-medium';
+            }
+        }
+
+        // ==========================================
+        // CALCULATE RESULTS
+        // ==========================================
+        function calculateResults() {
+            let totalSistem = { DDD: 0, LJBB: 0, MBB: 0, all: 0 };
+            let totalFisik = { DDD: 0, LJBB: 0, MBB: 0, all: 0 };
+            let totalSelisih = { DDD: 0, LJBB: 0, MBB: 0, all: 0 };
+            let matchCount = 0;
+            let plusCount = 0;
+            let minusCount = 0;
+            
+            cycleCountResults = [];
+            
+            selectedArticles.forEach((article, index) => {
+                const fisikDDD = parseInt(document.querySelector(`input[data-index="${index}"][data-entity="DDD"]`).value) || 0;
+                const fisikLJBB = parseInt(document.querySelector(`input[data-index="${index}"][data-entity="LJBB"]`).value) || 0;
+                const fisikMBB = parseInt(document.querySelector(`input[data-index="${index}"][data-entity="MBB"]`).value) || 0;
+                const fisikTotal = fisikDDD + fisikLJBB + fisikMBB;
+                
+                const selisihDDD = fisikDDD - article.boxDDD;
+                const selisihLJBB = fisikLJBB - article.boxLJBB;
+                const selisihMBB = fisikMBB - article.boxMBB;
+                const selisihTotal = fisikTotal - article.total;
+                
+                // Accumulate
+                totalSistem.DDD += article.boxDDD;
+                totalSistem.LJBB += article.boxLJBB;
+                totalSistem.MBB += article.boxMBB;
+                totalSistem.all += article.total;
+                
+                totalFisik.DDD += fisikDDD;
+                totalFisik.LJBB += fisikLJBB;
+                totalFisik.MBB += fisikMBB;
+                totalFisik.all += fisikTotal;
+                
+                totalSelisih.DDD += Math.abs(selisihDDD);
+                totalSelisih.LJBB += Math.abs(selisihLJBB);
+                totalSelisih.MBB += Math.abs(selisihMBB);
+                totalSelisih.all += Math.abs(selisihTotal);
+                
+                // Count matches
+                if (selisihTotal === 0) matchCount++;
+                else if (selisihTotal > 0) plusCount++;
+                else minusCount++;
+                
+                // Store results
+                cycleCountResults.push({
+                    kode: article.kode,
+                    nama: article.nama,
+                    category: article.category,
+                    sistemDDD: article.boxDDD,
+                    sistemLJBB: article.boxLJBB,
+                    sistemMBB: article.boxMBB,
+                    sistemTotal: article.total,
+                    fisikDDD,
+                    fisikLJBB,
+                    fisikMBB,
+                    fisikTotal,
+                    selisihDDD,
+                    selisihLJBB,
+                    selisihMBB,
+                    selisihTotal
+                });
+            });
+            
+            // Calculate accuracy
+            const calcAccuracy = (sistem, selisih) => {
+                if (sistem === 0) return '100%';
+                return ((1 - selisih / sistem) * 100).toFixed(1) + '%';
+            };
+            
+            document.getElementById('accuracyGlobal').textContent = calcAccuracy(totalSistem.all, totalSelisih.all);
+            document.getElementById('accuracyDDD').textContent = calcAccuracy(totalSistem.DDD, totalSelisih.DDD);
+            document.getElementById('accuracyLJBB').textContent = calcAccuracy(totalSistem.LJBB, totalSelisih.LJBB);
+            document.getElementById('accuracyMBB').textContent = calcAccuracy(totalSistem.MBB, totalSelisih.MBB);
+            document.getElementById('matchCount').textContent = `${matchCount}/${TOTAL_ARTICLES}`;
+            
+            // Color coding for global accuracy
+            const globalEl = document.getElementById('accuracyGlobal');
+            const accuracy = parseFloat(calcAccuracy(totalSistem.all, totalSelisih.all));
+            if (accuracy >= 95) globalEl.className = 'text-3xl font-bold text-green-600';
+            else if (accuracy >= 90) globalEl.className = 'text-3xl font-bold text-yellow-600';
+            else globalEl.className = 'text-3xl font-bold text-red-600';
+            
+            // Update chart
+            updateSelisihChart(matchCount, plusCount, minusCount);
+            
+            // Enable save button
+            document.getElementById('btnSave').disabled = false;
+        }
+
+        function updateSelisihChart(match, plus, minus) {
+            const ctx = document.getElementById('selisihChart');
+            if (window.selisihChartInstance) window.selisihChartInstance.destroy();
+            
+            window.selisihChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Match (0)', 'Lebih (+)', 'Kurang (-)'],
+                    datasets: [{
+                        data: [match, plus, minus],
+                        backgroundColor: ['#10b981', '#3b82f6', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    },
+                    cutout: '60%'
+                }
+            });
+        }
+
+        // ==========================================
+        // SAVE TO GOOGLE SHEETS
+        // ==========================================
+        async function saveToSheet() {
+            const petugas = document.getElementById('petugasName').value.trim();
+            const tanggal = document.getElementById('cycleDate').value;
+            
+            if (cycleCountResults.length === 0) {
+                alert('Mohon hitung hasil terlebih dahulu!');
+                return;
+            }
+            
+            // Show loading
+            const btnSave = document.getElementById('btnSave');
+            const originalText = btnSave.innerHTML;
+            btnSave.innerHTML = `
+                <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Menyimpan...
+            `;
+            btnSave.disabled = true;
+            
+            try {
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        petugas,
+                        tanggal,
+                        results: cycleCountResults
+                    })
+                });
+                
+                // Show success modal
+                document.getElementById('successModal').classList.remove('hidden');
+                document.getElementById('successModal').classList.add('flex');
+                
+                // Reload history after short delay
+                setTimeout(() => {
+                    loadHistory();
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Error saving to sheet:', error);
+                alert('Gagal menyimpan ke Google Sheets. Data akan di-export ke Excel.');
+                exportExcel();
+            } finally {
+                btnSave.innerHTML = originalText;
+                btnSave.disabled = false;
+            }
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('successModal').classList.add('hidden');
+            document.getElementById('successModal').classList.remove('flex');
+        }
+
+        // ==========================================
+        // EXPORT TO EXCEL
+        // ==========================================
+        function exportExcel() {
+            const petugas = document.getElementById('petugasName').value.trim();
+            const tanggal = document.getElementById('cycleDate').value;
+            
+            if (cycleCountResults.length === 0) {
+                alert('Mohon hitung hasil terlebih dahulu!');
+                return;
+            }
+            
+            // Create CSV content
+            let csv = 'CYCLE COUNT REPORT\n';
+            csv += `Tanggal,${tanggal}\n`;
+            csv += `Petugas,${petugas}\n\n`;
+            csv += 'No,Kategori,Kode,Nama Artikel,Sistem DDD,Fisik DDD,Selisih DDD,Sistem LJBB,Fisik LJBB,Selisih LJBB,Sistem MBB,Fisik MBB,Selisih MBB,Sistem Total,Fisik Total,Selisih Total\n';
+            
+            cycleCountResults.forEach((r, i) => {
+                csv += `${i+1},${r.category},${r.kode},"${r.nama}",${r.sistemDDD},${r.fisikDDD},${r.selisihDDD},${r.sistemLJBB},${r.fisikLJBB},${r.selisihLJBB},${r.sistemMBB},${r.fisikMBB},${r.selisihMBB},${r.sistemTotal},${r.fisikTotal},${r.selisihTotal}\n`;
+            });
+            
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `CycleCount_${tanggal}_${petugas.replace(/\s+/g, '_')}.csv`;
+            link.click();
+        }
+
+        // ==========================================
+        // RESET
+        // ==========================================
+        function resetForm() {
+            if (!confirm('Yakin ingin reset? Semua data input akan hilang.')) return;
+            
+            selectedArticles = [];
+            cycleCountResults = [];
+            
+            document.getElementById('cycleCountForm').classList.add('hidden');
+            document.getElementById('slowCount').textContent = '0';
+            document.getElementById('fastCount').textContent = '0';
+            document.getElementById('turnoverCount').textContent = '0';
+            document.getElementById('randomCount').textContent = '0';
+            
+            document.getElementById('accuracyGlobal').textContent = '-';
+            document.getElementById('accuracyDDD').textContent = '-';
+            document.getElementById('accuracyLJBB').textContent = '-';
+            document.getElementById('accuracyMBB').textContent = '-';
+            document.getElementById('matchCount').textContent = '-';
+            
+            document.getElementById('btnSave').disabled = true;
+        }
+
+        // ==========================================
+        // LOAD HISTORY
+        // ==========================================
+        async function loadHistory() {
+            const historySection = document.getElementById('historySection');
+            
+            // Clear old data
+            window.historyData = {};
+            
+            historySection.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="animate-spin w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+                    <p class="text-gray-500 text-sm">Memuat riwayat...</p>
+                </div>
+            `;
+            
+            try {
+                // Add cache-busting timestamp to prevent cached results
+                const cacheBuster = new Date().getTime();
+                const response = await fetch(`${APPS_SCRIPT_URL}?t=${cacheBuster}`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    redirect: 'follow'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.data && result.data.length > 1) {
+                    renderHistory(result.data);
+                } else {
+                    historySection.innerHTML = `
+                        <div class="text-center py-8 text-gray-400">
+                            <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <p>Belum ada riwayat cycle count</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+                console.error('Apps Script URL:', APPS_SCRIPT_URL);
+                historySection.innerHTML = `
+                    <div class="text-center py-8 text-red-400">
+                        <svg class="w-12 h-12 mx-auto mb-2 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p>Gagal memuat riwayat</p>
+                        <p class="text-xs text-gray-400 mt-1">${error.message}</p>
+                        <button onclick="loadHistory()" class="mt-2 text-sm text-blue-600 hover:underline">Coba lagi</button>
+                    </div>
+                `;
+            }
+        }
+
+        function renderHistory(data) {
+            const historySection = document.getElementById('historySection');
+            
+            // Skip header row, get data rows
+            const rows = data.slice(1);
+            
+            if (rows.length === 0) {
+                historySection.innerHTML = `
+                    <div class="text-center py-8 text-gray-400">
+                        <p>Belum ada riwayat cycle count</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Group by date and petugas
+            const grouped = {};
+            rows.forEach(row => {
+                const key = `${row[1]}_${row[2]}`; // tanggal_petugas
+                if (!grouped[key]) {
+                    grouped[key] = {
+                        timestamp: row[0],
+                        tanggal: row[1],
+                        petugas: row[2],
+                        items: []
+                    };
+                }
+                grouped[key].items.push({
+                    category: row[3],
+                    kode: row[4],
+                    nama: row[5],
+                    sistemDDD: parseInt(row[6]) || 0,
+                    fisikDDD: parseInt(row[7]) || 0,
+                    selisihDDD: parseInt(row[8]) || 0,
+                    sistemLJBB: parseInt(row[9]) || 0,
+                    fisikLJBB: parseInt(row[10]) || 0,
+                    selisihLJBB: parseInt(row[11]) || 0,
+                    sistemMBB: parseInt(row[12]) || 0,
+                    fisikMBB: parseInt(row[13]) || 0,
+                    selisihMBB: parseInt(row[14]) || 0,
+                    sistemTotal: parseInt(row[15]) || 0,
+                    fisikTotal: parseInt(row[16]) || 0,
+                    selisihTotal: parseInt(row[17]) || 0
+                });
+            });
+            
+            // Remove duplicate articles within each session
+            Object.keys(grouped).forEach(key => {
+                const seen = new Set();
+                grouped[key].items = grouped[key].items.filter(item => {
+                    if (seen.has(item.kode)) {
+                        return false; // Skip duplicate
+                    }
+                    seen.add(item.kode);
+                    return true;
+                });
+            });
+            
+            // Sort by date descending
+            const sortedKeys = Object.keys(grouped).sort((a, b) => {
+                const dateA = grouped[a].tanggal;
+                const dateB = grouped[b].tanggal;
+                return dateB.localeCompare(dateA);
+            });
+            
+            // Take last 10 sessions
+            const recentKeys = sortedKeys.slice(0, 10);
+            
+            let html = `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-800 text-white">
+                            <tr>
+                                <th class="py-3 px-2 text-left">Tanggal</th>
+                                <th class="py-3 px-2 text-left">Petugas</th>
+                                <th class="py-3 px-2 text-center">Artikel</th>
+                                <th class="py-3 px-2 text-center">Match</th>
+                                <th class="py-3 px-2 text-center bg-orange-600">Selisih DDD</th>
+                                <th class="py-3 px-2 text-center bg-purple-600">Selisih LJBB</th>
+                                <th class="py-3 px-2 text-center bg-teal-600">Selisih MBB</th>
+                                <th class="py-3 px-2 text-center bg-gray-600">Total Selisih</th>
+                                <th class="py-3 px-2 text-center">Akurasi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            recentKeys.forEach((key, idx) => {
+                const session = grouped[key];
+                const items = session.items;
+                
+                // Calculate stats per entity - sum all selisih (both + and -)
+                let matchCount = 0;
+                let selisihDDD = 0, selisihLJBB = 0, selisihMBB = 0, selisihTotal = 0;
+                let totalSistem = 0, totalAbsSelisih = 0;
+                let countSelisihDDD = 0, countSelisihLJBB = 0, countSelisihMBB = 0, countSelisihTotal = 0;
+                
+                items.forEach(item => {
+                    totalSistem += item.sistemTotal;
+                    totalAbsSelisih += Math.abs(item.selisihTotal);
+                    
+                    if (item.selisihTotal === 0) matchCount++;
+                    
+                    // Sum selisih per entity
+                    selisihDDD += item.selisihDDD;
+                    selisihLJBB += item.selisihLJBB;
+                    selisihMBB += item.selisihMBB;
+                    selisihTotal += item.selisihTotal;
+                    
+                    // Count articles with selisih per entity
+                    if (item.selisihDDD !== 0) countSelisihDDD++;
+                    if (item.selisihLJBB !== 0) countSelisihLJBB++;
+                    if (item.selisihMBB !== 0) countSelisihMBB++;
+                    if (item.selisihTotal !== 0) countSelisihTotal++;
+                });
+                
+                const accuracy = totalSistem > 0 ? ((1 - totalAbsSelisih / totalSistem) * 100).toFixed(1) : 100;
+                
+                let accuracyClass = 'text-green-600 bg-green-100';
+                if (accuracy < 90) accuracyClass = 'text-red-600 bg-red-100';
+                else if (accuracy < 95) accuracyClass = 'text-yellow-600 bg-yellow-100';
+                
+                // Format tanggal for display
+                let displayDate = session.tanggal;
+                if (displayDate.includes('T')) {
+                    displayDate = displayDate.split('T')[0];
+                }
+                
+                // Helper to format selisih cell with color and make clickable
+                const formatSelisihCell = (value, count, entity, bgClass) => {
+                    if (value === 0) return `<td class="py-2 px-2 text-center ${bgClass}"><span class="text-gray-400">0</span></td>`;
+                    const color = value > 0 ? 'text-blue-600' : 'text-red-600';
+                    const prefix = value > 0 ? '+' : '';
+                    return `<td class="py-2 px-2 text-center ${bgClass}">
+                        <span class="${color} font-medium cursor-pointer hover:underline" onclick="showSelisihDetail('${key}', '${entity}')">
+                            ${prefix}${value} <span class="text-xs text-gray-400">(${count})</span>
+                        </span>
+                    </td>`;
+                };
+                
+                html += `
+                    <tr class="border-b hover:bg-gray-50 ${idx % 2 === 0 ? '' : 'bg-gray-50'}">
+                        <td class="py-2 px-2 font-medium">${displayDate}</td>
+                        <td class="py-2 px-2">${session.petugas}</td>
+                        <td class="py-2 px-2 text-center">
+                            <span class="cursor-pointer hover:underline text-blue-600" onclick="showBreakdown('${key}', 'all')">${items.length}</span>
+                        </td>
+                        <td class="py-2 px-2 text-center">
+                            <span class="px-2 py-1 rounded bg-green-100 text-green-700 font-medium">${matchCount}</span>
+                        </td>
+                        ${formatSelisihCell(selisihDDD, countSelisihDDD, 'DDD', 'bg-orange-50')}
+                        ${formatSelisihCell(selisihLJBB, countSelisihLJBB, 'LJBB', 'bg-purple-50')}
+                        ${formatSelisihCell(selisihMBB, countSelisihMBB, 'MBB', 'bg-teal-50')}
+                        ${formatSelisihCell(selisihTotal, countSelisihTotal, 'Total', 'bg-gray-100')}
+                        <td class="py-2 px-2 text-center">
+                            <span class="px-2 py-1 rounded font-medium ${accuracyClass}">${accuracy}%</span>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-xs text-gray-400 mt-3 text-center">Menampilkan ${recentKeys.length} sesi terakhir • Klik angka selisih untuk lihat detail artikel</p>
+            `;
+            
+            historySection.innerHTML = html;
+            
+            // Store grouped data for detail view
+            window.historyData = grouped;
+        }
+
+        // Show all articles with selisih (both + and -) for an entity
+        function showSelisihDetail(key, entity) {
+            const session = window.historyData[key];
+            if (!session) return;
+            
+            // Filter articles that have selisih for this entity
+            let filteredItems = [];
+            if (entity === 'DDD') {
+                filteredItems = session.items.filter(i => i.selisihDDD !== 0);
+            } else if (entity === 'LJBB') {
+                filteredItems = session.items.filter(i => i.selisihLJBB !== 0);
+            } else if (entity === 'MBB') {
+                filteredItems = session.items.filter(i => i.selisihMBB !== 0);
+            } else {
+                filteredItems = session.items.filter(i => i.selisihTotal !== 0);
+            }
+            
+            // Sort by selisih (largest absolute value first)
+            filteredItems.sort((a, b) => {
+                let selA, selB;
+                if (entity === 'DDD') { selA = a.selisihDDD; selB = b.selisihDDD; }
+                else if (entity === 'LJBB') { selA = a.selisihLJBB; selB = b.selisihLJBB; }
+                else if (entity === 'MBB') { selA = a.selisihMBB; selB = b.selisihMBB; }
+                else { selA = a.selisihTotal; selB = b.selisihTotal; }
+                return Math.abs(selB) - Math.abs(selA);
+            });
+            
+            // Format date
+            let displayDate = session.tanggal;
+            if (displayDate.includes('T')) displayDate = displayDate.split('T')[0];
+            
+            // Entity color
+            let entityColor = 'bg-gray-100';
+            if (entity === 'DDD') entityColor = 'bg-orange-100';
+            else if (entity === 'LJBB') entityColor = 'bg-purple-100';
+            else if (entity === 'MBB') entityColor = 'bg-teal-100';
+            
+            let modalHtml = `
+                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" id="breakdownModal">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                        <div class="px-6 py-4 border-b ${entityColor} flex justify-between items-center">
+                            <div>
+                                <h3 class="font-bold text-lg">📋 Detail Selisih ${entity}</h3>
+                                <p class="text-sm text-gray-500">${displayDate} - ${session.petugas} (${filteredItems.length} artikel dengan selisih)</p>
+                            </div>
+                            <button onclick="closeBreakdownModal()" class="p-2 hover:bg-gray-200 rounded-full">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="p-6 overflow-y-auto max-h-[70vh]">
+            `;
+            
+            if (filteredItems.length === 0) {
+                modalHtml += `<p class="text-center text-gray-400 py-8">Tidak ada artikel dengan selisih</p>`;
+            } else {
+                // Calculate totals
+                let totalPlus = 0, totalMinus = 0;
+                filteredItems.forEach(item => {
+                    let sel;
+                    if (entity === 'DDD') sel = item.selisihDDD;
+                    else if (entity === 'LJBB') sel = item.selisihLJBB;
+                    else if (entity === 'MBB') sel = item.selisihMBB;
+                    else sel = item.selisihTotal;
+                    
+                    if (sel > 0) totalPlus += sel;
+                    else totalMinus += sel;
+                });
+                
+                // Summary cards
+                modalHtml += `
+                    <div class="grid grid-cols-3 gap-4 mb-4">
+                        <div class="bg-blue-50 rounded-lg p-3 text-center">
+                            <p class="text-2xl font-bold text-blue-600">+${totalPlus}</p>
+                            <p class="text-xs text-gray-500">Total Lebih</p>
+                        </div>
+                        <div class="bg-red-50 rounded-lg p-3 text-center">
+                            <p class="text-2xl font-bold text-red-600">${totalMinus}</p>
+                            <p class="text-xs text-gray-500">Total Kurang</p>
+                        </div>
+                        <div class="bg-gray-100 rounded-lg p-3 text-center">
+                            <p class="text-2xl font-bold ${(totalPlus + totalMinus) >= 0 ? 'text-blue-600' : 'text-red-600'}">${(totalPlus + totalMinus) >= 0 ? '+' : ''}${totalPlus + totalMinus}</p>
+                            <p class="text-xs text-gray-500">Net Selisih</p>
+                        </div>
+                    </div>
+                `;
+                
+                modalHtml += `
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-800 text-white">
+                            <tr>
+                                <th class="py-2 px-3 text-left">No</th>
+                                <th class="py-2 px-3 text-left">Kode <span class="text-xs text-gray-400">(klik)</span></th>
+                                <th class="py-2 px-3 text-left">Nama Artikel</th>
+                                <th class="py-2 px-3 text-center">Sistem</th>
+                                <th class="py-2 px-3 text-center">Fisik</th>
+                                <th class="py-2 px-3 text-center">Selisih</th>
+                                <th class="py-2 px-3 text-center">Keterangan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                filteredItems.forEach((item, idx) => {
+                    // Get values based on entity
+                    let sistem, fisik, selisih;
+                    if (entity === 'DDD') {
+                        sistem = item.sistemDDD; fisik = item.fisikDDD; selisih = item.selisihDDD;
+                    } else if (entity === 'LJBB') {
+                        sistem = item.sistemLJBB; fisik = item.fisikLJBB; selisih = item.selisihLJBB;
+                    } else if (entity === 'MBB') {
+                        sistem = item.sistemMBB; fisik = item.fisikMBB; selisih = item.selisihMBB;
+                    } else {
+                        sistem = item.sistemTotal; fisik = item.fisikTotal; selisih = item.selisihTotal;
+                    }
+                    
+                    const selisihClass = selisih > 0 ? 'text-blue-600 bg-blue-50' : 'text-red-600 bg-red-50';
+                    const selisihText = selisih > 0 ? `+${selisih}` : selisih;
+                    const keterangan = selisih > 0 ? 
+                        '<span class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">LEBIH</span>' : 
+                        '<span class="px-2 py-1 rounded text-xs bg-red-100 text-red-700">KURANG</span>';
+                    
+                    modalHtml += `
+                        <tr class="border-b ${idx % 2 === 0 ? '' : 'bg-gray-50'}">
+                            <td class="py-2 px-3">${idx + 1}</td>
+                            <td class="py-2 px-3">
+                                <button type="button" class="font-medium text-blue-600 cursor-pointer hover:underline hover:text-blue-800 article-history-btn" data-kode="${item.kode}" data-nama="${item.nama.replace(/"/g, '&quot;')}">${item.kode}</button>
+                            </td>
+                            <td class="py-2 px-3">${item.nama}</td>
+                            <td class="py-2 px-3 text-center">${sistem}</td>
+                            <td class="py-2 px-3 text-center">${fisik}</td>
+                            <td class="py-2 px-3 text-center font-bold ${selisihClass}">${selisihText}</td>
+                            <td class="py-2 px-3 text-center">${keterangan}</td>
+                        </tr>
+                    `;
+                });
+                
+                modalHtml += `
+                        </tbody>
+                    </table>
+                `;
+            }
+            
+            modalHtml += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        function closeBreakdownModal() {
+            const modal = document.getElementById('breakdownModal');
+            if (modal) modal.remove();
+        }
+
+        // ==========================================
+        // TRANSACTION HISTORY
+        // ==========================================
+        async function showTransactionHistory(kode, nama) {
+            // Show loading modal
+            const loadingHtml = `
+                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4" id="transactionModal">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+                        <div class="px-6 py-4 border-b bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex justify-between items-center">
+                            <div>
+                                <h3 class="font-bold text-lg">📦 History Transaksi</h3>
+                                <p class="text-sm text-indigo-100">${kode} - ${nama}</p>
+                            </div>
+                            <button onclick="closeTransactionModal()" class="p-2 hover:bg-white/20 rounded-full">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="p-6 text-center">
+                            <div class="animate-spin w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+                            <p class="text-gray-500">Memuat data transaksi...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', loadingHtml);
+            
+            try {
+                // Fetch transaction data from all 3 entities
+                // Column structure: A=No, B=Tanggal, C=Artikel, D=Nama, E=TrxIN, F=TrxOUT, G=GudangAsal, H=GudangTerima
+                const [transDDD, transLJBB, transMBB] = await Promise.all([
+                    fetchSheetData(SHEETS.TRANSAKSI_DDD, 'A2:H5000'),
+                    fetchSheetData(SHEETS.TRANSAKSI_LJBB, 'A2:H5000'),
+                    fetchSheetData(SHEETS.TRANSAKSI_MBB, 'A2:H5000')
+                ]);
+                
+                // Filter transactions for this article (Column C = index 2)
+                const filterByKode = (data) => {
+                    if (!data || data.length === 0) return [];
+                    return data.filter(row => {
+                        const rowKode = row[2] ? row[2].toString().trim() : '';
+                        return rowKode === kode;
+                    });
+                };
+                
+                const dddTrans = filterByKode(transDDD);
+                const ljbbTrans = filterByKode(transLJBB);
+                const mbbTrans = filterByKode(transMBB);
+                
+                // Render transaction history
+                renderTransactionHistory(kode, nama, dddTrans, ljbbTrans, mbbTrans);
+                
+            } catch (error) {
+                console.error('Error loading transactions:', error);
+                document.getElementById('transactionModal').querySelector('.p-6').innerHTML = `
+                    <div class="text-center text-red-500 py-8">
+                        <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p>Gagal memuat data transaksi</p>
+                        <p class="text-xs text-gray-400 mt-1">${error.message}</p>
+                        <button onclick="closeTransactionModal()" class="mt-4 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Tutup</button>
+                    </div>
+                `;
+            }
+        }
+        
+        function renderTransactionHistory(kode, nama, dddTrans, ljbbTrans, mbbTrans) {
+            const modal = document.getElementById('transactionModal');
+            if (!modal) return;
+            
+            // Column structure: A=No(0), B=Tanggal(1), C=Artikel(2), D=Nama(3), E=TrxIN(4), F=TrxOUT(5), G=GudangAsal(6), H=GudangTerima(7)
+            
+            // Calculate summary per entity
+            const calcSummary = (trans) => {
+                let totalIn = 0, totalOut = 0;
+                trans.forEach(row => {
+                    const qtyIn = parseNumber(row[4]) || 0;   // Column E = Transaksi IN
+                    const qtyOut = parseNumber(row[5]) || 0;  // Column F = Transaksi OUT
+                    totalIn += qtyIn;
+                    totalOut += qtyOut;
+                });
+                return { totalIn, totalOut, net: totalIn - totalOut, count: trans.length };
+            };
+            
+            const summaryDDD = calcSummary(dddTrans);
+            const summaryLJBB = calcSummary(ljbbTrans);
+            const summaryMBB = calcSummary(mbbTrans);
+            
+            // Get current stock from stockData for this article
+            const article = stockData.articles.find(a => a.kode === kode);
+            const currentStockDDD = article ? article.boxDDD : 0;
+            const currentStockLJBB = article ? article.boxLJBB : 0;
+            const currentStockMBB = article ? article.boxMBB : 0;
+            
+            // Combine all transactions with entity info
+            const allTrans = [];
+            
+            const addTrans = (trans, entity) => {
+                trans.forEach(row => {
+                    const qtyIn = parseNumber(row[4]) || 0;
+                    const qtyOut = parseNumber(row[5]) || 0;
+                    
+                    allTrans.push({
+                        tanggal: row[1] || '',         // Column B = Tanggal
+                        kode: row[2] || '',            // Column C = Artikel
+                        nama: row[3] || '',            // Column D = Nama Barang
+                        qtyIn: qtyIn,                  // Column E = Transaksi IN
+                        qtyOut: qtyOut,                // Column F = Transaksi OUT
+                        gudangAsal: row[6] || '',      // Column G = Gudang Asal
+                        gudangTerima: row[7] || '',    // Column H = Gudang Terima
+                        entity: entity
+                    });
+                });
+            };
+            
+            addTrans(dddTrans, 'DDD');
+            addTrans(ljbbTrans, 'LJBB');
+            addTrans(mbbTrans, 'MBB');
+            
+            // Sort by date ascending first to calculate running balance
+            allTrans.sort((a, b) => {
+                const dateA = a.tanggal ? new Date(a.tanggal) : new Date(0);
+                const dateB = b.tanggal ? new Date(b.tanggal) : new Date(0);
+                return dateA - dateB;
+            });
+            
+            // Calculate initial stock (current stock - net of all transactions)
+            // Then calculate running stock end for each transaction
+            let initialDDD = currentStockDDD - summaryDDD.net;
+            let initialLJBB = currentStockLJBB - summaryLJBB.net;
+            let initialMBB = currentStockMBB - summaryMBB.net;
+            
+            let runningDDD = initialDDD;
+            let runningLJBB = initialLJBB;
+            let runningMBB = initialMBB;
+            
+            allTrans.forEach(trans => {
+                if (trans.entity === 'DDD') {
+                    runningDDD += trans.qtyIn - trans.qtyOut;
+                    trans.stockEnd = runningDDD;
+                } else if (trans.entity === 'LJBB') {
+                    runningLJBB += trans.qtyIn - trans.qtyOut;
+                    trans.stockEnd = runningLJBB;
+                } else if (trans.entity === 'MBB') {
+                    runningMBB += trans.qtyIn - trans.qtyOut;
+                    trans.stockEnd = runningMBB;
+                }
+            });
+            
+            // Now sort by date ascending for display (oldest first)
+            allTrans.sort((a, b) => {
+                const dateA = a.tanggal ? new Date(a.tanggal) : new Date(0);
+                const dateB = b.tanggal ? new Date(b.tanggal) : new Date(0);
+                return dateA - dateB;
+            });
+            
+            let html = `
+                <div class="p-6 overflow-y-auto max-h-[75vh]">
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-semibold text-orange-700">📦 DDD</h4>
+                                <span class="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded font-bold">Stock: ${currentStockDDD}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mb-2">${summaryDDD.count} transaksi</p>
+                            <div class="grid grid-cols-3 gap-1 text-sm">
+                                <div class="text-center">
+                                    <p class="font-bold text-green-600">+${summaryDDD.totalIn}</p>
+                                    <p class="text-xs text-gray-500">IN</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="font-bold text-red-600">-${summaryDDD.totalOut}</p>
+                                    <p class="text-xs text-gray-500">OUT</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="font-bold ${summaryDDD.net >= 0 ? 'text-blue-600' : 'text-red-600'}">${summaryDDD.net >= 0 ? '+' : ''}${summaryDDD.net}</p>
+                                    <p class="text-xs text-gray-500">NET</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-semibold text-purple-700">📦 LJBB</h4>
+                                <span class="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded font-bold">Stock: ${currentStockLJBB}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mb-2">${summaryLJBB.count} transaksi</p>
+                            <div class="grid grid-cols-3 gap-1 text-sm">
+                                <div class="text-center">
+                                    <p class="font-bold text-green-600">+${summaryLJBB.totalIn}</p>
+                                    <p class="text-xs text-gray-500">IN</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="font-bold text-red-600">-${summaryLJBB.totalOut}</p>
+                                    <p class="text-xs text-gray-500">OUT</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="font-bold ${summaryLJBB.net >= 0 ? 'text-blue-600' : 'text-red-600'}">${summaryLJBB.net >= 0 ? '+' : ''}${summaryLJBB.net}</p>
+                                    <p class="text-xs text-gray-500">NET</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-teal-50 rounded-xl p-4 border border-teal-200">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-semibold text-teal-700">📦 MBB</h4>
+                                <span class="text-xs bg-teal-200 text-teal-800 px-2 py-1 rounded font-bold">Stock: ${currentStockMBB}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mb-2">${summaryMBB.count} transaksi</p>
+                            <div class="grid grid-cols-3 gap-1 text-sm">
+                                <div class="text-center">
+                                    <p class="font-bold text-green-600">+${summaryMBB.totalIn}</p>
+                                    <p class="text-xs text-gray-500">IN</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="font-bold text-red-600">-${summaryMBB.totalOut}</p>
+                                    <p class="text-xs text-gray-500">OUT</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="font-bold ${summaryMBB.net >= 0 ? 'text-blue-600' : 'text-red-600'}">${summaryMBB.net >= 0 ? '+' : ''}${summaryMBB.net}</p>
+                                    <p class="text-xs text-gray-500">NET</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Transaction History Table -->
+                    <h4 class="font-semibold text-gray-700 mb-3">📋 Riwayat Transaksi (${allTrans.length} transaksi)</h4>
+            `;
+            
+            if (allTrans.length === 0) {
+                html += `<p class="text-center text-gray-400 py-8">Tidak ada transaksi ditemukan untuk artikel ini</p>`;
+            } else {
+                html += `
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-800 text-white">
+                                <tr>
+                                    <th class="py-2 px-2 text-left">No</th>
+                                    <th class="py-2 px-2 text-left">Tanggal</th>
+                                    <th class="py-2 px-2 text-center">Entitas</th>
+                                    <th class="py-2 px-2 text-center">IN</th>
+                                    <th class="py-2 px-2 text-center">OUT</th>
+                                    <th class="py-2 px-2 text-center">Stock End</th>
+                                    <th class="py-2 px-2 text-left">Asal</th>
+                                    <th class="py-2 px-2 text-left">Tujuan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                allTrans.forEach((trans, idx) => {
+                    // Format date
+                    let displayDate = trans.tanggal;
+                    if (displayDate) {
+                        // Handle various date formats
+                        if (typeof displayDate === 'number') {
+                            // Excel serial date
+                            const date = new Date((displayDate - 25569) * 86400 * 1000);
+                            displayDate = date.toISOString().split('T')[0];
+                        } else if (typeof displayDate === 'string' && displayDate.includes('T')) {
+                            displayDate = displayDate.split('T')[0];
+                        }
+                    }
+                    
+                    // Entity badge color
+                    let entityClass = 'bg-gray-100 text-gray-700';
+                    if (trans.entity === 'DDD') entityClass = 'bg-orange-100 text-orange-700';
+                    else if (trans.entity === 'LJBB') entityClass = 'bg-purple-100 text-purple-700';
+                    else if (trans.entity === 'MBB') entityClass = 'bg-teal-100 text-teal-700';
+                    
+                    // Format IN/OUT cells
+                    const inCell = trans.qtyIn > 0 ? 
+                        `<span class="px-2 py-1 rounded bg-green-100 text-green-700 font-bold">+${trans.qtyIn}</span>` : 
+                        `<span class="text-gray-300">-</span>`;
+                    const outCell = trans.qtyOut > 0 ? 
+                        `<span class="px-2 py-1 rounded bg-red-100 text-red-700 font-bold">-${trans.qtyOut}</span>` : 
+                        `<span class="text-gray-300">-</span>`;
+                    
+                    html += `
+                        <tr class="border-b ${idx % 2 === 0 ? '' : 'bg-gray-50'} hover:bg-gray-100">
+                            <td class="py-2 px-2 text-gray-400">${idx + 1}</td>
+                            <td class="py-2 px-2 font-medium">${displayDate || '-'}</td>
+                            <td class="py-2 px-2 text-center">
+                                <span class="px-2 py-1 rounded text-xs font-medium ${entityClass}">${trans.entity}</span>
+                            </td>
+                            <td class="py-2 px-2 text-center">${inCell}</td>
+                            <td class="py-2 px-2 text-center">${outCell}</td>
+                            <td class="py-2 px-2 text-center">
+                                <span class="px-2 py-1 rounded bg-blue-50 text-blue-700 font-bold">${trans.stockEnd}</span>
+                            </td>
+                            <td class="py-2 px-2 text-gray-600 text-xs">${trans.gudangAsal || '-'}</td>
+                            <td class="py-2 px-2 text-gray-700 font-medium text-xs">${trans.gudangTerima || '-'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+            
+            html += `
+                </div>
+            `;
+            
+            modal.querySelector('.bg-white').innerHTML = `
+                <div class="px-6 py-4 border-b bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-lg">📦 History Transaksi</h3>
+                        <p class="text-sm text-indigo-100">${kode} - ${nama}</p>
+                    </div>
+                    <button onclick="closeTransactionModal()" class="p-2 hover:bg-white/20 rounded-full">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                ${html}
+            `;
+        }
+        
+        function closeTransactionModal() {
+            const modal = document.getElementById('transactionModal');
+            if (modal) modal.remove();
+        }
+
+        function showHistoryDetail(key) {
+            const session = window.historyData[key];
+            if (!session) return;
+            
+            let detailHtml = `
+                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" id="historyDetailModal">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                        <div class="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
+                            <div>
+                                <h3 class="font-bold text-lg">Detail Cycle Count</h3>
+                                <p class="text-sm text-gray-500">${session.tanggal} - ${session.petugas}</p>
+                            </div>
+                            <button onclick="closeHistoryDetail()" class="p-2 hover:bg-gray-200 rounded-full">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="p-6 overflow-y-auto max-h-[70vh]">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-800 text-white">
+                                    <tr>
+                                        <th class="py-2 px-3 text-left">Kode</th>
+                                        <th class="py-2 px-3 text-left">Nama</th>
+                                        <th class="py-2 px-3 text-center">Kategori</th>
+                                        <th class="py-2 px-3 text-center">Sistem</th>
+                                        <th class="py-2 px-3 text-center">Fisik</th>
+                                        <th class="py-2 px-3 text-center">Selisih</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+            
+            session.items.forEach((item, idx) => {
+                const selisih = parseInt(item.selisihTotal) || 0;
+                let selisihClass = 'text-gray-600';
+                let selisihText = '0';
+                
+                if (selisih > 0) {
+                    selisihClass = 'text-blue-600 font-medium';
+                    selisihText = '+' + selisih;
+                } else if (selisih < 0) {
+                    selisihClass = 'text-red-600 font-medium';
+                    selisihText = selisih;
+                }
+                
+                const categoryLabels = {
+                    slow: '🐢 Slow',
+                    fast: '🚀 Fast',
+                    turnover: '🔄 Turnover',
+                    random: '🎲 Random'
+                };
+                
+                detailHtml += `
+                    <tr class="border-b ${idx % 2 === 0 ? '' : 'bg-gray-50'}">
+                        <td class="py-2 px-3 font-medium text-blue-600">${item.kode}</td>
+                        <td class="py-2 px-3">${item.nama}</td>
+                        <td class="py-2 px-3 text-center text-xs">${categoryLabels[item.category] || item.category}</td>
+                        <td class="py-2 px-3 text-center">${item.sistemTotal}</td>
+                        <td class="py-2 px-3 text-center">${item.fisikTotal}</td>
+                        <td class="py-2 px-3 text-center ${selisihClass}">${selisihText}</td>
+                    </tr>
+                `;
+            });
+            
+            detailHtml += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', detailHtml);
+        }
+
+        function closeHistoryDetail() {
+            const modal = document.getElementById('historyDetailModal');
+            if (modal) modal.remove();
+        }
+
+        // Close modals with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeSuccessModal();
+                closeHistoryDetail();
+                closeBreakdownModal();
+                closeTransactionModal();
+            }
+        });
+
+        // Close modals when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target.id === 'breakdownModal') closeBreakdownModal();
+            if (e.target.id === 'historyDetailModal') closeHistoryDetail();
+            if (e.target.id === 'successModal') closeSuccessModal();
+            if (e.target.id === 'transactionModal') closeTransactionModal();
+            
+            // Handle article history button clicks
+            if (e.target.classList.contains('article-history-btn')) {
+                const kode = e.target.getAttribute('data-kode');
+                const nama = e.target.getAttribute('data-nama');
+                if (kode && nama) {
+                    showTransactionHistory(kode, nama);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

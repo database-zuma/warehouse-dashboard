@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZUMA - Schedule Pengiriman</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .zuma-dark { background-color: #002A3A; }
+        .zuma-green { background-color: #00E273; }
+        .zuma-dark-text { color: #002A3A; }
+        .zuma-green-text { color: #00E273; }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #00E273;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
+        .status-delivered { background: #10b981; color: white; }
+        .status-intransit { background: #f59e0b; color: white; }
+        .status-pending { background: #6b7280; color: white; }
+        .status-cancelled { background: #ef4444; color: white; }
+        .ontime-badge { background: #d1fae5; color: #065f46; }
+        .late-badge { background: #fee2e2; color: #991b1b; }
+        .dnpb-ok { background: #dbeafe; color: #1e40af; }
+        .dnpb-error { background: #fef3c7; color: #92400e; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-8 flex flex-col items-center shadow-2xl">
+            <div class="loading-spinner mb-4"></div>
+            <p id="loadingText" class="text-gray-600 font-medium">Memuat data pengiriman...</p>
+        </div>
+    </div>
+
+    <!-- Modal Form TAMBAH -->
+    <div id="addModal" class="fixed inset-0 modal-overlay flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div class="zuma-dark text-white px-6 py-4 flex justify-between items-center sticky top-0">
+                <h3 class="text-lg font-bold flex items-center gap-2">🚚 Tambah Pengiriman Baru</h3>
+                <button onclick="closeAddModal()" class="text-gray-300 hover:text-white transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <form id="addForm" class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tujuan Kiriman <span class="text-red-500">*</span></label>
+                        <input type="text" id="addTujuan" list="tujuanList" required placeholder="Contoh: Jakarta, Surabaya..." 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                        <datalist id="tujuanList"></datalist>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Plan Delivery Date <span class="text-red-500">*</span></label>
+                        <input type="date" id="addPlanDate" required 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Actual Delivery Date</label>
+                        <input type="date" id="addActualDate" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Arrival Date</label>
+                        <input type="date" id="addArrivalDate" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status <span class="text-red-500">*</span></label>
+                        <select id="addStatus" required class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                            <option value="">-- Pilih Status --</option>
+                            <option value="Pending">Pending</option>
+                            <option value="In Transit">In Transit</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">DNPB Status</label>
+                        <select id="addDNPB" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                            <option value="">-- Pilih --</option>
+                            <option value="DNPB OK">DNPB OK</option>
+                            <option value="DNPB Error">DNPB Error</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Keterangan DNPB Error</label>
+                        <input type="text" id="addKetDNPB" placeholder="Isi jika DNPB Error..." 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Sender <span class="text-red-500">*</span></label>
+                        <input type="text" id="addSender" list="senderList" required placeholder="Nama pengirim..." 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                        <datalist id="senderList"></datalist>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Qty DDD</label>
+                        <input type="number" id="addQtyDDD" min="0" value="0" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Qty LJBB</label>
+                        <input type="number" id="addQtyLJBB" min="0" value="0" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Qty MBB</label>
+                        <input type="number" id="addQtyMBB" min="0" value="0" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-4 border-t">
+                    <button type="button" onclick="closeAddModal()" class="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">Batal</button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 zuma-green rounded-lg zuma-dark-text hover:opacity-90 font-medium">💾 Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Form EDIT -->
+    <div id="editModal" class="fixed inset-0 modal-overlay flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div class="bg-blue-600 text-white px-6 py-4 flex justify-between items-center sticky top-0">
+                <h3 class="text-lg font-bold flex items-center gap-2">✏️ Edit Pengiriman</h3>
+                <button onclick="closeEditModal()" class="text-blue-200 hover:text-white transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <form id="editForm" class="p-6 space-y-4">
+                <input type="hidden" id="editRowNum">
+                <div class="bg-gray-50 rounded-lg p-3 mb-2">
+                    <p class="text-sm text-gray-500">Tujuan:</p>
+                    <p id="editTujuanDisplay" class="font-bold text-teal-600"></p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Plan Delivery Date</label>
+                        <input type="date" id="editPlanDate" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Actual Delivery Date</label>
+                        <input type="date" id="editActualDate" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Arrival Date</label>
+                        <input type="date" id="editArrivalDate" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="editStatus" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- Pilih Status --</option>
+                            <option value="Pending">Pending</option>
+                            <option value="In Transit">In Transit</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">DNPB Status</label>
+                        <select id="editDNPB" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- Pilih --</option>
+                            <option value="DNPB OK">DNPB OK</option>
+                            <option value="DNPB Error">DNPB Error</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Keterangan DNPB Error</label>
+                        <input type="text" id="editKetDNPB" placeholder="Isi jika DNPB Error..." 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Qty DDD</label>
+                        <input type="number" id="editQtyDDD" min="0" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Qty LJBB</label>
+                        <input type="number" id="editQtyLJBB" min="0" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Qty MBB</label>
+                        <input type="number" id="editQtyMBB" min="0" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-4 border-t">
+                    <button type="button" onclick="closeEditModal()" class="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">Batal</button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 bg-blue-600 rounded-lg text-white hover:bg-blue-700 font-medium">💾 Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="zuma-dark text-white py-4 px-6 shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    <span class="text-sm">Dashboard</span>
+                </a>
+                <div class="h-6 w-px bg-gray-600"></div>
+                <h1 class="text-xl font-bold flex items-center gap-2">🚚 Schedule Pengiriman</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="lastUpdate" class="text-gray-400 text-sm hidden md:block"></span>
+                <button onclick="openAddModal()" class="flex items-center gap-2 px-4 py-2 bg-white rounded-lg font-medium text-teal-600 hover:bg-gray-100 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Tambah Pengiriman
+                </button>
+                <button onclick="refreshData()" class="flex items-center gap-2 px-4 py-2 zuma-green rounded-lg font-medium zuma-dark-text hover:opacity-90 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-6">
+        <!-- Month Filter -->
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+            <div class="flex flex-wrap gap-4 items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-gray-600 font-medium">📅 Periode:</span>
+                    <select id="filterMonth" onchange="applyFilters()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                        <!-- Options will be populated -->
+                    </select>
+                    <select id="filterYear" onchange="applyFilters()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                        <!-- Options will be populated -->
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="setCurrentMonth()" class="px-4 py-2 bg-teal-100 text-teal-700 rounded-lg hover:bg-teal-200 font-medium text-sm">
+                        Bulan Ini
+                    </button>
+                    <button onclick="showAllData()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                        Semua Data
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Cards - MTD Ratio -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-teal-500">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm">Total Pengiriman</p>
+                        <h2 id="totalDelivery" class="text-2xl md:text-3xl font-bold mt-1 text-teal-600">0</h2>
+                        <p id="totalQtyAll" class="text-gray-400 text-xs mt-1">0 box</p>
+                    </div>
+                    <div class="p-2 rounded-lg bg-teal-100"><span class="text-xl">📦</span></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm">Delivered</p>
+                        <h2 id="deliveredCount" class="text-2xl md:text-3xl font-bold mt-1 text-green-600">0</h2>
+                        <p id="deliveredPercent" class="text-gray-400 text-xs mt-1">0%</p>
+                    </div>
+                    <div class="p-2 rounded-lg bg-green-100"><span class="text-xl">✅</span></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-yellow-500">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm">In Transit</p>
+                        <h2 id="intransitCount" class="text-2xl md:text-3xl font-bold mt-1 text-yellow-600">0</h2>
+                        <p id="intransitPercent" class="text-gray-400 text-xs mt-1">0%</p>
+                    </div>
+                    <div class="p-2 rounded-lg bg-yellow-100"><span class="text-xl">🚛</span></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-500">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm">On Time Rate</p>
+                        <h2 id="ontimeRate" class="text-2xl md:text-3xl font-bold mt-1 text-blue-600">0%</h2>
+                        <p id="ontimeCount" class="text-gray-400 text-xs mt-1">0 on time</p>
+                    </div>
+                    <div class="p-2 rounded-lg bg-blue-100"><span class="text-xl">⏱️</span></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-red-500">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm">Late Rate</p>
+                        <h2 id="lateRate" class="text-2xl md:text-3xl font-bold mt-1 text-red-600">0%</h2>
+                        <p id="lateCount" class="text-gray-400 text-xs mt-1">0 late</p>
+                    </div>
+                    <div class="p-2 rounded-lg bg-red-100"><span class="text-xl">⚠️</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DNPB & Qty Summary Row -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 shadow-sm">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-blue-600 text-sm font-medium">DNPB OK</p>
+                        <h2 id="dnpbOkCount" class="text-xl font-bold text-blue-700">0</h2>
+                    </div>
+                    <span class="text-2xl">✓</span>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-amber-50 to-amber-100 rounded-xl p-4 shadow-sm">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-amber-600 text-sm font-medium">DNPB Error</p>
+                        <h2 id="dnpbErrorCount" class="text-xl font-bold text-amber-700">0</h2>
+                    </div>
+                    <span class="text-2xl">⚡</span>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-indigo-50 to-indigo-100 rounded-xl p-4 shadow-sm">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-indigo-600 text-sm font-medium">Total Qty (Box)</p>
+                        <h2 id="totalBoxSummary" class="text-xl font-bold text-indigo-700">0</h2>
+                    </div>
+                    <span class="text-2xl">📊</span>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-4 shadow-sm">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-purple-600 text-sm font-medium">Avg SLA (days)</p>
+                        <h2 id="avgSLA" class="text-xl font-bold text-purple-700">0</h2>
+                    </div>
+                    <span class="text-2xl">📈</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Status Distribution -->
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Distribusi Status Pengiriman</h3>
+                <canvas id="statusChart" height="200"></canvas>
+            </div>
+            <!-- OnTime vs Late -->
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">⏱️ Rasio On Time vs Late</h3>
+                <canvas id="ontimeChart" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Filter & Search -->
+        <div class="bg-white rounded-xl shadow-sm p-4 md:p-6 mb-6">
+            <div class="flex flex-wrap gap-4 items-center justify-between">
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="filterByStatus('all')" id="filterAll" class="px-4 py-2 rounded-lg text-sm font-medium zuma-dark text-white">Semua</button>
+                    <button onclick="filterByStatus('Delivered')" id="filterDelivered" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">✅ Delivered</button>
+                    <button onclick="filterByStatus('In Transit')" id="filterInTransit" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">🚛 In Transit</button>
+                    <button onclick="filterByStatus('Pending')" id="filterPending" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">⏳ Pending</button>
+                    <button onclick="filterByStatus('Cancelled')" id="filterCancelled" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">❌ Cancelled</button>
+                </div>
+                <div class="flex gap-4 items-center w-full md:w-auto">
+                    <select id="filterTujuan" onchange="applyFilters()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <option value="">Semua Tujuan</option>
+                    </select>
+                    <input type="text" id="searchInput" placeholder="Cari tujuan/sender..." 
+                        class="px-4 py-2 border border-gray-300 rounded-lg text-sm flex-1 md:w-64"
+                        onkeyup="applyFilters()">
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b flex justify-between items-center">
+                <h3 class="font-bold text-gray-800">📋 Data Pengiriman <span id="periodLabel" class="text-teal-600 text-sm font-normal"></span></h3>
+                <span id="tableInfo" class="text-sm text-gray-500">Menampilkan 0 item</span>
+            </div>
+            <div class="overflow-x-auto scrollbar-thin">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="text-left py-3 px-3 font-semibold text-gray-600">No</th>
+                            <th class="text-left py-3 px-3 font-semibold text-gray-600">Tujuan</th>
+                            <th class="text-center py-3 px-3 font-semibold text-gray-600">Plan Date</th>
+                            <th class="text-center py-3 px-3 font-semibold text-gray-600">Actual Date</th>
+                            <th class="text-center py-3 px-3 font-semibold text-gray-600">Arrival</th>
+                            <th class="text-center py-3 px-3 font-semibold text-gray-600">Status</th>
+                            <th class="text-center py-3 px-3 font-semibold text-gray-600">DNPB</th>
+                            <th class="text-left py-3 px-3 font-semibold text-gray-600">Sender</th>
+                            <th class="text-right py-3 px-3 font-semibold text-gray-600">DDD</th>
+                            <th class="text-right py-3 px-3 font-semibold text-gray-600">LJBB</th>
+                            <th class="text-right py-3 px-3 font-semibold text-gray-600">MBB</th>
+                            <th class="text-right py-3 px-3 font-semibold text-gray-600">Total</th>
+                            <th class="text-center py-3 px-3 font-semibold text-gray-600">SLA</th>
+                            <th class="text-center py-3 px-3 font-semibold text-gray-600">Rimaks</th>
+                            <th class="text-center py-3 px-3 font-semibold text-gray-600">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <div class="px-6 py-4 border-t bg-gray-50 flex justify-between items-center">
+                <span id="paginationInfo" class="text-sm text-gray-500">Halaman 1</span>
+                <div class="flex gap-2">
+                    <button onclick="prevPage()" id="prevBtn" class="px-3 py-1.5 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 text-sm" disabled>← Prev</button>
+                    <button onclick="nextPage()" id="nextBtn" class="px-3 py-1.5 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 text-sm">Next →</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="zuma-dark mt-8 py-6">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg zuma-green flex items-center justify-center">
+                    <span class="text-lg font-bold zuma-dark-text">Z</span>
+                </div>
+                <div>
+                    <p class="text-white font-semibold">ZUMA Dashboard</p>
+                    <p class="text-gray-400 text-xs">Schedule Pengiriman v1.0</p>
+                </div>
+            </div>
+            <p class="text-gray-400 text-sm">© 2026 ZUMA Sandal. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // ==========================================
+        // KONFIGURASI
+        // ==========================================
+        const SPREADSHEET_ID = '12LzJKfGeNj0oXoAl7GEgavo9fBmE2gBcZsK9RAfWKzw';
+        const API_KEY = 'AIzaSyBLmrYiydwSWdipHjUUnpXuC4Ruc_fEB7A';
+        const SHEET_NAME = 'Delivery';
+        
+        // PENTING: Ganti dengan URL Apps Script setelah deploy
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwVtqaZjNKka-dv2LC3SK_Nc4xy7AU-xpm-JPRIdmNAPoYixz8brPAuLptXfq70VTS0/exec';
+        
+        let allItems = [];
+        let filteredItems = [];
+        let currentStatusFilter = 'all';
+        let currentPage = 1;
+        const itemsPerPage = 20;
+        let showAllMonths = false;
+        
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            initFilters();
+            loadData();
+        });
+        
+        function initFilters() {
+            const monthSelect = document.getElementById('filterMonth');
+            const yearSelect = document.getElementById('filterYear');
+            
+            const months = [
+                'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+            ];
+            
+            months.forEach((month, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx + 1;
+                opt.textContent = month;
+                monthSelect.appendChild(opt);
+            });
+            
+            const currentYear = new Date().getFullYear();
+            for (let y = currentYear - 1; y <= currentYear + 1; y++) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y;
+                yearSelect.appendChild(opt);
+            }
+            
+            // Set current month/year
+            const now = new Date();
+            monthSelect.value = now.getMonth() + 1;
+            yearSelect.value = now.getFullYear();
+        }
+        
+        function setCurrentMonth() {
+            showAllMonths = false;
+            const now = new Date();
+            document.getElementById('filterMonth').value = now.getMonth() + 1;
+            document.getElementById('filterYear').value = now.getFullYear();
+            applyFilters();
+        }
+        
+        function showAllData() {
+            showAllMonths = true;
+            applyFilters();
+        }
+        
+        // ==========================================
+        // MODAL FUNCTIONS
+        // ==========================================
+        function openAddModal() {
+            document.getElementById('addModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // Set default date to today
+            document.getElementById('addPlanDate').valueAsDate = new Date();
+        }
+        
+        function closeAddModal() {
+            document.getElementById('addModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            document.getElementById('addForm').reset();
+        }
+        
+        function openEditModal(item) {
+            document.getElementById('editModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            document.getElementById('editRowNum').value = item.rowNum;
+            document.getElementById('editTujuanDisplay').textContent = item.tujuan;
+            document.getElementById('editPlanDate').value = convertToInputDate(item.planDate);
+            document.getElementById('editActualDate').value = convertToInputDate(item.actualDate);
+            document.getElementById('editArrivalDate').value = convertToInputDate(item.arrivalDate);
+            document.getElementById('editStatus').value = item.status;
+            document.getElementById('editDNPB').value = item.dnpb;
+            document.getElementById('editKetDNPB').value = item.ketDNPB || '';
+            document.getElementById('editQtyDDD').value = item.qtyDDD || 0;
+            document.getElementById('editQtyLJBB').value = item.qtyLJBB || 0;
+            document.getElementById('editQtyMBB').value = item.qtyMBB || 0;
+        }
+        
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            document.getElementById('editForm').reset();
+        }
+        
+        // ==========================================
+        // DATE HELPERS
+        // ==========================================
+        function formatDateForSheet(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+        
+        function convertToInputDate(dateStr) {
+            if (!dateStr || dateStr === '-') return '';
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            }
+            return '';
+        }
+        
+        function parseDate(dateStr) {
+            if (!dateStr || dateStr === '-') return null;
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                return new Date(parts[2], parts[1] - 1, parts[0]);
+            }
+            return null;
+        }
+        
+        // ==========================================
+        // FORM SUBMISSIONS
+        // ==========================================
+        document.getElementById('addForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const qtyDDD = parseInt(document.getElementById('addQtyDDD').value) || 0;
+            const qtyLJBB = parseInt(document.getElementById('addQtyLJBB').value) || 0;
+            const qtyMBB = parseInt(document.getElementById('addQtyMBB').value) || 0;
+            
+            const data = {
+                action: 'add',
+                tujuan: document.getElementById('addTujuan').value.trim(),
+                planDate: formatDateForSheet(document.getElementById('addPlanDate').value),
+                actualDate: formatDateForSheet(document.getElementById('addActualDate').value),
+                arrivalDate: formatDateForSheet(document.getElementById('addArrivalDate').value),
+                status: document.getElementById('addStatus').value,
+                dnpb: document.getElementById('addDNPB').value,
+                ketDNPB: document.getElementById('addKetDNPB').value.trim(),
+                sender: document.getElementById('addSender').value.trim(),
+                qtyDDD: qtyDDD,
+                qtyLJBB: qtyLJBB,
+                qtyMBB: qtyMBB,
+                qtyTotal: qtyDDD + qtyLJBB + qtyMBB
+            };
+            
+            await submitData(data, 'Menambahkan pengiriman...');
+            closeAddModal();
+        });
+        
+        document.getElementById('editForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const qtyDDD = parseInt(document.getElementById('editQtyDDD').value) || 0;
+            const qtyLJBB = parseInt(document.getElementById('editQtyLJBB').value) || 0;
+            const qtyMBB = parseInt(document.getElementById('editQtyMBB').value) || 0;
+            
+            const data = {
+                action: 'edit',
+                rowNum: parseInt(document.getElementById('editRowNum').value),
+                planDate: formatDateForSheet(document.getElementById('editPlanDate').value),
+                actualDate: formatDateForSheet(document.getElementById('editActualDate').value),
+                arrivalDate: formatDateForSheet(document.getElementById('editArrivalDate').value),
+                status: document.getElementById('editStatus').value,
+                dnpb: document.getElementById('editDNPB').value,
+                ketDNPB: document.getElementById('editKetDNPB').value.trim(),
+                qtyDDD: qtyDDD,
+                qtyLJBB: qtyLJBB,
+                qtyMBB: qtyMBB,
+                qtyTotal: qtyDDD + qtyLJBB + qtyMBB
+            };
+            
+            await submitData(data, 'Mengupdate data...');
+            closeEditModal();
+        });
+        
+        async function submitData(data, loadingMsg) {
+            showLoading(true, loadingMsg);
+            
+            try {
+                await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                alert('✅ Data berhasil disimpan!');
+                setTimeout(() => loadData(), 2000);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Gagal menyimpan: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        // ==========================================
+        // LOAD DATA
+        // ==========================================
+        function showLoading(show, msg = 'Memuat data pengiriman...') {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+            document.getElementById('loadingText').textContent = msg;
+        }
+        
+        async function loadData() {
+            showLoading(true);
+            
+            try {
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A2:N5000?key=${API_KEY}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const data = await response.json();
+                const rows = data.values || [];
+                
+                console.log('Loaded rows:', rows.length);
+                
+                allItems = rows
+                    .map((row, idx) => ({
+                        rowNum: idx + 2,
+                        tujuan: (row[0] || '').trim(),
+                        planDate: (row[1] || '').trim(),
+                        actualDate: (row[2] || '').trim(),
+                        arrivalDate: (row[3] || '').trim(),
+                        status: (row[4] || '').trim(),
+                        dnpb: (row[5] || '').trim(),
+                        ketDNPB: (row[6] || '').trim(),
+                        sender: (row[7] || '').trim(),
+                        qtyDDD: parseInt(String(row[8] || '0').replace(/,/g, '')) || 0,
+                        qtyLJBB: parseInt(String(row[9] || '0').replace(/,/g, '')) || 0,
+                        qtyMBB: parseInt(String(row[10] || '0').replace(/,/g, '')) || 0,
+                        qtyTotal: parseInt(String(row[11] || '0').replace(/,/g, '')) || 0,
+                        sla: parseInt(row[12]) || 0,
+                        rimaks: (row[13] || '').trim()
+                    }))
+                    .filter(item => item.tujuan || item.planDate);
+                
+                updateTujuanFilter();
+                updateDataLists();
+                applyFilters();
+                updateTimestamp();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('tableBody').innerHTML = `
+                    <tr>
+                        <td colspan="15" class="py-8 text-center text-red-500">
+                            <p class="text-lg mb-2">❌ Gagal memuat data</p>
+                            <p class="text-sm text-gray-400">${error.message}</p>
+                            <button onclick="loadData()" class="mt-3 px-4 py-2 bg-teal-600 text-white rounded-lg">Coba Lagi</button>
+                        </td>
+                    </tr>
+                `;
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        function updateTimestamp() {
+            const now = new Date();
+            const options = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
+            document.getElementById('lastUpdate').textContent = `Update: ${now.toLocaleDateString('id-ID', options)}`;
+        }
+        
+        function updateTujuanFilter() {
+            const tujuanSet = new Set(allItems.map(i => i.tujuan).filter(t => t));
+            const select = document.getElementById('filterTujuan');
+            select.innerHTML = '<option value="">Semua Tujuan</option>';
+            
+            [...tujuanSet].sort().forEach(tujuan => {
+                const opt = document.createElement('option');
+                opt.value = tujuan;
+                opt.textContent = tujuan;
+                select.appendChild(opt);
+            });
+        }
+        
+        function updateDataLists() {
+            // Tujuan datalist
+            const tujuanSet = new Set(allItems.map(i => i.tujuan).filter(t => t));
+            const tujuanList = document.getElementById('tujuanList');
+            tujuanList.innerHTML = '';
+            tujuanSet.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                tujuanList.appendChild(opt);
+            });
+            
+            // Sender datalist
+            const senderSet = new Set(allItems.map(i => i.sender).filter(s => s));
+            const senderList = document.getElementById('senderList');
+            senderList.innerHTML = '';
+            senderSet.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                senderList.appendChild(opt);
+            });
+        }
+        
+        // ==========================================
+        // FILTERS
+        // ==========================================
+        function filterByStatus(status) {
+            currentStatusFilter = status;
+            currentPage = 1;
+            
+            const buttons = ['All', 'Delivered', 'InTransit', 'Pending', 'Cancelled'];
+            const statusMap = { 'All': 'all', 'Delivered': 'Delivered', 'InTransit': 'In Transit', 'Pending': 'Pending', 'Cancelled': 'Cancelled' };
+            
+            buttons.forEach(btn => {
+                const el = document.getElementById(`filter${btn}`);
+                if (statusMap[btn] === status) {
+                    el.className = 'px-4 py-2 rounded-lg text-sm font-medium zuma-dark text-white';
+                } else {
+                    el.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200';
+                }
+            });
+            
+            applyFilters();
+        }
+        
+        function applyFilters() {
+            const month = parseInt(document.getElementById('filterMonth').value);
+            const year = parseInt(document.getElementById('filterYear').value);
+            const tujuanFilter = document.getElementById('filterTujuan').value;
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            filteredItems = allItems.filter(item => {
+                // Month/Year filter
+                if (!showAllMonths) {
+                    const planDate = parseDate(item.planDate);
+                    if (planDate) {
+                        if (planDate.getMonth() + 1 !== month || planDate.getFullYear() !== year) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                
+                // Status filter
+                if (currentStatusFilter !== 'all' && item.status !== currentStatusFilter) return false;
+                
+                // Tujuan filter
+                if (tujuanFilter && item.tujuan !== tujuanFilter) return false;
+                
+                // Search
+                if (searchTerm) {
+                    const matchTujuan = item.tujuan.toLowerCase().includes(searchTerm);
+                    const matchSender = item.sender.toLowerCase().includes(searchTerm);
+                    if (!matchTujuan && !matchSender) return false;
+                }
+                
+                return true;
+            });
+            
+            // Sort by plan date desc
+            filteredItems.sort((a, b) => {
+                const dateA = parseDate(a.planDate);
+                const dateB = parseDate(b.planDate);
+                if (!dateA) return 1;
+                if (!dateB) return -1;
+                return dateB - dateA;
+            });
+            
+            currentPage = 1;
+            updateSummary();
+            updateCharts();
+            renderTable();
+            updatePeriodLabel();
+        }
+        
+        function updatePeriodLabel() {
+            const label = document.getElementById('periodLabel');
+            if (showAllMonths) {
+                label.textContent = '(Semua Data)';
+            } else {
+                const months = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                const month = parseInt(document.getElementById('filterMonth').value);
+                const year = document.getElementById('filterYear').value;
+                label.textContent = `(${months[month]} ${year})`;
+            }
+        }
+        
+        // ==========================================
+        // SUMMARY & CHARTS
+        // ==========================================
+        function updateSummary() {
+            const total = filteredItems.length;
+            const delivered = filteredItems.filter(i => i.status === 'Delivered');
+            const intransit = filteredItems.filter(i => i.status === 'In Transit');
+            const ontime = filteredItems.filter(i => i.rimaks.toLowerCase().includes('on') || i.rimaks.toLowerCase().includes('time'));
+            const late = filteredItems.filter(i => i.rimaks.toLowerCase().includes('late'));
+            const dnpbOk = filteredItems.filter(i => i.dnpb.includes('OK'));
+            const dnpbError = filteredItems.filter(i => i.dnpb.includes('Error'));
+            
+            const totalQty = filteredItems.reduce((sum, i) => sum + (i.qtyTotal || 0), 0);
+            const avgSLA = filteredItems.length > 0 
+                ? (filteredItems.reduce((sum, i) => sum + (i.sla || 0), 0) / filteredItems.length).toFixed(1)
+                : 0;
+            
+            const deliveredWithRimaks = delivered.filter(i => i.rimaks).length || 1;
+            
+            document.getElementById('totalDelivery').textContent = total.toLocaleString('id-ID');
+            document.getElementById('totalQtyAll').textContent = totalQty.toLocaleString('id-ID') + ' box';
+            
+            document.getElementById('deliveredCount').textContent = delivered.length;
+            document.getElementById('deliveredPercent').textContent = total > 0 ? ((delivered.length / total) * 100).toFixed(1) + '%' : '0%';
+            
+            document.getElementById('intransitCount').textContent = intransit.length;
+            document.getElementById('intransitPercent').textContent = total > 0 ? ((intransit.length / total) * 100).toFixed(1) + '%' : '0%';
+            
+            document.getElementById('ontimeRate').textContent = deliveredWithRimaks > 0 ? ((ontime.length / deliveredWithRimaks) * 100).toFixed(1) + '%' : '0%';
+            document.getElementById('ontimeCount').textContent = ontime.length + ' on time';
+            
+            document.getElementById('lateRate').textContent = deliveredWithRimaks > 0 ? ((late.length / deliveredWithRimaks) * 100).toFixed(1) + '%' : '0%';
+            document.getElementById('lateCount').textContent = late.length + ' late';
+            
+            document.getElementById('dnpbOkCount').textContent = dnpbOk.length;
+            document.getElementById('dnpbErrorCount').textContent = dnpbError.length;
+            document.getElementById('totalBoxSummary').textContent = totalQty.toLocaleString('id-ID');
+            document.getElementById('avgSLA').textContent = avgSLA;
+        }
+        
+        function updateCharts() {
+            // Status Chart
+            const statusCtx = document.getElementById('statusChart');
+            if (window.statusChartInstance) window.statusChartInstance.destroy();
+            
+            const delivered = filteredItems.filter(i => i.status === 'Delivered').length;
+            const intransit = filteredItems.filter(i => i.status === 'In Transit').length;
+            const pending = filteredItems.filter(i => i.status === 'Pending').length;
+            const cancelled = filteredItems.filter(i => i.status === 'Cancelled').length;
+            
+            window.statusChartInstance = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Delivered', 'In Transit', 'Pending', 'Cancelled'],
+                    datasets: [{
+                        data: [delivered, intransit, pending, cancelled],
+                        backgroundColor: ['#10b981', '#f59e0b', '#6b7280', '#ef4444'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+            
+            // OnTime Chart
+            const ontimeCtx = document.getElementById('ontimeChart');
+            if (window.ontimeChartInstance) window.ontimeChartInstance.destroy();
+            
+            const ontime = filteredItems.filter(i => i.rimaks.toLowerCase().includes('on') || i.rimaks.toLowerCase().includes('time')).length;
+            const late = filteredItems.filter(i => i.rimaks.toLowerCase().includes('late')).length;
+            
+            window.ontimeChartInstance = new Chart(ontimeCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['On Time', 'Late'],
+                    datasets: [{
+                        data: [ontime, late],
+                        backgroundColor: ['#10b981', '#ef4444'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+        
+        // ==========================================
+        // RENDER TABLE
+        // ==========================================
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            const start = (currentPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const pageItems = filteredItems.slice(start, end);
+            
+            if (pageItems.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="15" class="py-8 text-center text-gray-400">
+                            <p class="text-lg mb-1">📭 Tidak ada data pengiriman</p>
+                            <p class="text-sm">Coba ubah filter atau periode</p>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = pageItems.map((item, idx) => {
+                    // Status badge
+                    let statusBadge = '';
+                    const statusLower = item.status.toLowerCase();
+                    if (statusLower === 'delivered') {
+                        statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium status-delivered">Delivered</span>';
+                    } else if (statusLower === 'in transit') {
+                        statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium status-intransit">In Transit</span>';
+                    } else if (statusLower === 'pending') {
+                        statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium status-pending">Pending</span>';
+                    } else if (statusLower === 'cancelled') {
+                        statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium status-cancelled">Cancelled</span>';
+                    } else {
+                        statusBadge = `<span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-200">${item.status || '-'}</span>`;
+                    }
+                    
+                    // DNPB badge
+                    let dnpbBadge = '-';
+                    if (item.dnpb.includes('OK')) {
+                        dnpbBadge = '<span class="px-2 py-1 rounded text-xs font-medium dnpb-ok">OK</span>';
+                    } else if (item.dnpb.includes('Error')) {
+                        dnpbBadge = '<span class="px-2 py-1 rounded text-xs font-medium dnpb-error" title="' + (item.ketDNPB || '') + '">Error</span>';
+                    }
+                    
+                    // Rimaks badge
+                    let rimaksBadge = '-';
+                    const rimaksLower = item.rimaks.toLowerCase();
+                    if (rimaksLower.includes('on') || rimaksLower.includes('time')) {
+                        rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium ontime-badge">On Time</span>';
+                    } else if (rimaksLower.includes('late')) {
+                        rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium late-badge">Late</span>';
+                    }
+                    
+                    const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
+                    
+                    return `
+                        <tr class="border-b hover:bg-gray-50 ${idx % 2 === 0 ? '' : 'bg-gray-50'}">
+                            <td class="py-2 px-3 text-gray-500">${start + idx + 1}</td>
+                            <td class="py-2 px-3 font-medium text-teal-600">${item.tujuan}</td>
+                            <td class="py-2 px-3 text-center text-gray-600">${item.planDate || '-'}</td>
+                            <td class="py-2 px-3 text-center text-gray-600">${item.actualDate || '-'}</td>
+                            <td class="py-2 px-3 text-center text-gray-600">${item.arrivalDate || '-'}</td>
+                            <td class="py-2 px-3 text-center">${statusBadge}</td>
+                            <td class="py-2 px-3 text-center">${dnpbBadge}</td>
+                            <td class="py-2 px-3 text-gray-600">${item.sender || '-'}</td>
+                            <td class="py-2 px-3 text-right">${item.qtyDDD.toLocaleString('id-ID')}</td>
+                            <td class="py-2 px-3 text-right">${item.qtyLJBB.toLocaleString('id-ID')}</td>
+                            <td class="py-2 px-3 text-right">${item.qtyMBB.toLocaleString('id-ID')}</td>
+                            <td class="py-2 px-3 text-right font-medium">${item.qtyTotal.toLocaleString('id-ID')}</td>
+                            <td class="py-2 px-3 text-center">${item.sla || '-'}</td>
+                            <td class="py-2 px-3 text-center">${rimaksBadge}</td>
+                            <td class="py-2 px-3 text-center">
+                                <button onclick='openEditModal(${itemJson})' class="px-2 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 text-xs font-medium">
+                                    ✏️
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            
+            // Pagination info
+            const totalFiltered = filteredItems.length;
+            const totalPages = Math.ceil(totalFiltered / itemsPerPage) || 1;
+            document.getElementById('tableInfo').textContent = `Menampilkan ${pageItems.length} dari ${totalFiltered} pengiriman`;
+            document.getElementById('paginationInfo').textContent = `Halaman ${currentPage} dari ${totalPages}`;
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+        }
+        
+        // ==========================================
+        // PAGINATION
+        // ==========================================
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable();
+                window.scrollTo({ top: 400, behavior: 'smooth' });
+            }
+        }
+        
+        function nextPage() {
+            const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderTable();
+                window.scrollTo({ top: 400, behavior: 'smooth' });
+            }
+        }
+        
+        function refreshData() { loadData(); }
+    </script>
+</body>
+</html>

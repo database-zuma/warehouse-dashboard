@@ -1,0 +1,1950 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZUMA Dashboard - Monitoring Stok Multi-Entitas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .zuma-dark { background-color: #002A3A; }
+        .zuma-green { background-color: #00E273; }
+        .zuma-dark-text { color: #002A3A; }
+        .zuma-green-text { color: #00E273; }
+        .entity-ddd { background: linear-gradient(135deg, #002A3A 0%, #003d52 100%); }
+        .entity-ljbb { background: linear-gradient(135deg, #00E273 0%, #00c264 100%); }
+        .entity-mbb { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #00E273;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .tab-active {
+            background: #002A3A;
+            color: white;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-8 flex flex-col items-center shadow-2xl">
+            <div class="loading-spinner mb-4"></div>
+            <p class="text-gray-600 font-medium">Memuat data dari Google Sheets...</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="zuma-dark text-white py-4 px-6 shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl zuma-green flex items-center justify-center">
+                    <span class="text-2xl font-bold zuma-dark-text">Z</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold flex items-center gap-2">
+                        <span class="zuma-green-text">ZUMA</span>
+                        <span class="text-gray-300">|</span>
+                        Dashboard
+                    </h1>
+                    <p class="text-gray-400 text-sm">Monitoring Stok Multi-Entitas Real-time</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 md:gap-3 flex-wrap justify-end">
+                <span id="lastUpdate" class="text-gray-400 text-sm hidden lg:block"></span>
+                
+                <!-- Tombol Cycle Count -->
+                <a href="cyclecount.html" class="flex items-center gap-2 px-3 py-2 bg-purple-600 rounded-lg font-medium text-white hover:bg-purple-700 transition text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                    </svg>
+                    <span class="hidden md:inline">Cycle Count</span>
+                </a>
+                
+                <!-- Tombol IGRM -->
+                <a href="igrm.html" class="flex items-center gap-2 px-3 py-2 bg-teal-600 rounded-lg font-medium text-white hover:bg-teal-700 transition text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                    <span class="hidden md:inline">IGRM</span>
+                </a>
+                
+                <!-- Tombol Delivery Schedule -->
+                <a href="delivery.html" class="flex items-center gap-2 px-3 py-2 bg-orange-500 rounded-lg font-medium text-white hover:bg-orange-600 transition text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="hidden md:inline">Delivery</span>
+                </a>
+                
+                <!-- Tombol Refresh -->
+                <button onclick="refreshData()" class="flex items-center gap-2 px-3 py-2 zuma-green rounded-lg font-medium zuma-dark-text hover:opacity-90 transition text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span class="hidden sm:inline">Refresh</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-6">
+        <!-- Summary Cards - Total -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <!-- Total Box All -->
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4" style="border-color: #002A3A;">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm">Total Box (Semua)</p>
+                        <h2 id="totalBoxAll" class="text-2xl md:text-3xl font-bold mt-1 zuma-dark-text">0</h2>
+                        <p id="boxBreakdown" class="text-gray-400 text-xs mt-1">DDD: 0 | LJBB: 0 | MBB: 0</p>
+                    </div>
+                    <div class="p-2 rounded-lg zuma-green">
+                        <svg class="w-5 h-5 zuma-dark-text" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Utilisasi -->
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4" style="border-color: #00E273;">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm">Utilisasi Gudang</p>
+                        <h2 id="utilization" class="text-2xl md:text-3xl font-bold mt-1 zuma-green-text">0%</h2>
+                        <p class="text-gray-400 text-xs mt-1">Kapasitas: <span id="maxCapacity">0</span> box</p>
+                    </div>
+                    <div class="p-2 rounded-lg zuma-dark">
+                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Pairs -->
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4" style="border-color: #f59e0b;">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm">Total Pairs</p>
+                        <h2 id="totalPairs" class="text-2xl md:text-3xl font-bold mt-1" style="color: #f59e0b;">0</h2>
+                        <p class="text-gray-400 text-xs mt-1">12 pairs/box</p>
+                    </div>
+                    <div class="p-2 rounded-lg" style="background: #f59e0b;">
+                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path>
+                            <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Artikel -->
+            <div class="bg-white rounded-xl p-4 shadow-sm border-l-4" style="border-color: #6366f1;">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm">Total Artikel</p>
+                        <h2 id="totalArtikel" class="text-2xl md:text-3xl font-bold mt-1" style="color: #6366f1;">0</h2>
+                        <p class="text-gray-400 text-xs mt-1">SKU Aktif</p>
+                    </div>
+                    <div class="p-2 rounded-lg" style="background: #6366f1;">
+                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Low Stock Alert -->
+        <div id="lowStockAlert" class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 hidden">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-red-100 rounded-lg">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-red-800">⚠️ Peringatan Stok Rendah</h3>
+                        <p class="text-red-600 text-sm"><span id="lowStockCount">0</span> artikel memiliki stok ≤ 10 box</p>
+                    </div>
+                </div>
+                <button onclick="openLowStockModal()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium">
+                    Lihat Detail
+                </button>
+            </div>
+        </div>
+
+        <!-- Entity Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <!-- DDD Card -->
+            <div class="entity-ddd rounded-xl p-4 text-white shadow-lg cursor-pointer hover:opacity-90 transition-all hover:scale-[1.02]" onclick="openEntityModal('DDD')">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-bold text-lg">📦 DDD</h3>
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded">Entitas 1</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-white/70 text-xs">Total Box</p>
+                        <p id="boxDDD" class="text-xl font-bold">0</p>
+                    </div>
+                    <div>
+                        <p class="text-white/70 text-xs">Total Pairs</p>
+                        <p id="pairsDDD" class="text-xl font-bold">0</p>
+                    </div>
+                </div>
+                <div class="mt-3 pt-3 border-t border-white/20 flex justify-between text-xs">
+                    <span>IN: <span id="inDDD" class="font-bold text-green-300">0</span></span>
+                    <span>OUT: <span id="outDDD" class="font-bold text-red-300">0</span></span>
+                </div>
+            </div>
+
+            <!-- LJBB Card -->
+            <div class="entity-ljbb rounded-xl p-4 shadow-lg cursor-pointer hover:opacity-90 transition-all hover:scale-[1.02]" style="color: #002A3A;" onclick="openEntityModal('LJBB')">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-bold text-lg">📦 LJBB</h3>
+                    <span class="text-xs bg-black/10 px-2 py-1 rounded">Entitas 2</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="opacity-70 text-xs">Total Box</p>
+                        <p id="boxLJBB" class="text-xl font-bold">0</p>
+                    </div>
+                    <div>
+                        <p class="opacity-70 text-xs">Total Pairs</p>
+                        <p id="pairsLJBB" class="text-xl font-bold">0</p>
+                    </div>
+                </div>
+                <div class="mt-3 pt-3 border-t border-black/20 flex justify-between text-xs">
+                    <span>IN: <span id="inLJBB" class="font-bold" style="color: #065f46;">0</span></span>
+                    <span>OUT: <span id="outLJBB" class="font-bold" style="color: #991b1b;">0</span></span>
+                </div>
+            </div>
+
+            <!-- MBB Card -->
+            <div class="entity-mbb rounded-xl p-4 text-white shadow-lg cursor-pointer hover:opacity-90 transition-all hover:scale-[1.02]" onclick="openEntityModal('MBB')">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-bold text-lg">📦 MBB</h3>
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded">Entitas 3</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-white/70 text-xs">Total Box</p>
+                        <p id="boxMBB" class="text-xl font-bold">0</p>
+                    </div>
+                    <div>
+                        <p class="text-white/70 text-xs">Total Pairs</p>
+                        <p id="pairsMBB" class="text-xl font-bold">0</p>
+                    </div>
+                </div>
+                <div class="mt-3 pt-3 border-t border-white/20 flex justify-between text-xs">
+                    <span>IN: <span id="inMBB" class="font-bold text-green-300">0</span></span>
+                    <span>OUT: <span id="outMBB" class="font-bold text-red-300">0</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Entity Distribution Chart -->
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Distribusi Stok per Entitas</h3>
+                <canvas id="entityChart" height="200"></canvas>
+            </div>
+
+            <!-- Tier Distribution Chart -->
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">📈 Distribusi Stok per Tier</h3>
+                <canvas id="tierChart" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Daily Trend Chart -->
+        <div class="bg-white rounded-xl p-4 shadow-sm mb-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">📉 Trend Transaksi Harian</h3>
+                <div class="flex gap-4 text-sm">
+                    <span class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-green-500"></span> Barang Masuk (IN)
+                    </span>
+                    <span class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-red-500"></span> Barang Keluar (OUT)
+                    </span>
+                </div>
+            </div>
+            <canvas id="trendChart" height="100"></canvas>
+        </div>
+
+        <!-- Transaksi Section -->
+        <div class="bg-white rounded-xl shadow-sm mb-6">
+            <div class="p-4 border-b">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <h3 class="text-lg font-semibold text-gray-800">📋 Transaksi</h3>
+                    
+                    <!-- Tabs -->
+                    <div class="flex gap-2">
+                        <button onclick="setTransaksiTab('in')" id="tabIn" class="px-4 py-2 rounded-lg text-sm font-medium tab-active">
+                            🟢 Barang Masuk (IN)
+                        </button>
+                        <button onclick="setTransaksiTab('out')" id="tabOut" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700">
+                            🔴 Barang Keluar (OUT)
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Filters -->
+                <div class="flex flex-wrap gap-3 mt-4">
+                    <input type="text" id="searchTransaksi" placeholder="Cari kode/nama artikel..." 
+                        class="px-3 py-2 border rounded-lg text-sm w-full md:w-48"
+                        onkeyup="filterTransaksi()">
+                    
+                    <input type="date" id="filterDateFrom" class="px-3 py-2 border rounded-lg text-sm" onchange="filterTransaksi()">
+                    <span class="self-center text-gray-400">s/d</span>
+                    <input type="date" id="filterDateTo" class="px-3 py-2 border rounded-lg text-sm" onchange="filterTransaksi()">
+                    
+                    <select id="filterEntity" class="px-3 py-2 border rounded-lg text-sm" onchange="filterTransaksi()">
+                        <option value="all">Semua Entitas</option>
+                        <option value="DDD">DDD</option>
+                        <option value="LJBB">LJBB</option>
+                        <option value="MBB">MBB</option>
+                    </select>
+                    
+                    <select id="filterGudang" class="px-3 py-2 border rounded-lg text-sm" onchange="filterTransaksi()">
+                        <option value="all">Semua Tujuan/Asal</option>
+                        <!-- Will be populated dynamically -->
+                    </select>
+                    
+                    <button onclick="resetTransaksiFilter()" class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">
+                        Reset
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Transaksi Table -->
+            <div class="overflow-x-auto scrollbar-thin">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">No</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Tanggal</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Entitas</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Kode</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Nama Barang</th>
+                            <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">Qty</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Gudang Asal</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Gudang Terima</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transaksiTableBody">
+                        <!-- Data will be populated -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="p-4 border-t flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <span id="transaksiInfo" class="text-sm text-gray-500">Menampilkan 0 transaksi</span>
+                    <span id="transaksiSubtotal" class="text-sm font-semibold px-3 py-1 bg-gray-100 rounded-lg">Total Qty: 0</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="prevTransaksiPage()" id="btnPrevTrx" class="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50" disabled>←</button>
+                    <span id="transaksiPageInfo" class="px-3 py-1 text-sm">1 / 1</span>
+                    <button onclick="nextTransaksiPage()" id="btnNextTrx" class="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50" disabled>→</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Artikel Table -->
+        <div class="bg-white rounded-xl shadow-sm">
+            <div class="p-4 border-b">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <h3 class="text-lg font-semibold text-gray-800">📦 Daftar Artikel</h3>
+                    
+                    <div class="flex flex-wrap gap-3">
+                        <input type="text" id="searchArtikel" placeholder="Cari kode/nama..." 
+                            class="px-3 py-2 border rounded-lg text-sm w-full md:w-48"
+                            onkeyup="filterArtikel()">
+                        
+                        <select id="filterTier" class="px-3 py-2 border rounded-lg text-sm" onchange="filterArtikel()">
+                            <option value="all">Semua Tier</option>
+                            <option value="1">Tier 1</option>
+                            <option value="2">Tier 2</option>
+                            <option value="3">Tier 3</option>
+                            <option value="4">Tier 4</option>
+                        </select>
+                        
+                        <select id="filterStock" class="px-3 py-2 border rounded-lg text-sm" onchange="filterArtikel()">
+                            <option value="all">Semua Status</option>
+                            <option value="hasStock">✅ Ada Stok</option>
+                            <option value="lowStock">⚠️ Stok Rendah (≤10)</option>
+                            <option value="noStock">❌ Habis</option>
+                        </select>
+                        
+                        <select id="filterEntityArtikel" class="px-3 py-2 border rounded-lg text-sm" onchange="filterArtikel()">
+                            <option value="all">Semua Entitas</option>
+                            <option value="DDD">Stok DDD > 0</option>
+                            <option value="LJBB">Stok LJBB > 0</option>
+                            <option value="MBB">Stok MBB > 0</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto scrollbar-thin">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">No</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Kode</th>
+                            <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Nama Artikel</th>
+                            <th class="text-center py-3 px-4 text-sm font-semibold text-gray-600">Tier</th>
+                            <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">DDD</th>
+                            <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">LJBB</th>
+                            <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">MBB</th>
+                            <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">Total</th>
+                            <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">Pairs</th>
+                            <th class="text-center py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="artikelTableBody">
+                        <!-- Data will be populated -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="p-4 border-t flex justify-between items-center">
+                <span id="artikelInfo" class="text-sm text-gray-500">Menampilkan 0 artikel</span>
+                <div class="flex gap-2">
+                    <button onclick="prevArtikelPage()" id="btnPrevArt" class="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50" disabled>←</button>
+                    <span id="artikelPageInfo" class="px-3 py-1 text-sm">1 / 1</span>
+                    <button onclick="nextArtikelPage()" id="btnNextArt" class="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50" disabled>→</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-4 text-gray-400 text-sm">
+        ZUMA Dashboard v11.0 | Data dari Google Sheets Real-time
+    </footer>
+
+    <!-- Detail Modal -->
+    <div id="detailModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div id="modalHeader" class="px-6 py-4 border-b flex justify-between items-center">
+                <div>
+                    <h3 id="modalTitle" class="text-xl font-bold text-gray-800">Detail</h3>
+                    <p id="modalSubtitle" class="text-sm text-gray-500 mt-1"></p>
+                </div>
+                <button onclick="closeDetailModal()" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="px-6 py-4 overflow-y-auto max-h-[60vh]">
+                <!-- Summary Cards in Modal -->
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                    <div id="modalCard1" class="bg-blue-50 rounded-lg p-4 text-center">
+                        <p id="modalCard1Value" class="text-2xl font-bold text-blue-600">0</p>
+                        <p id="modalCard1Label" class="text-sm text-blue-500">Total Box</p>
+                    </div>
+                    <div id="modalCard2" class="bg-green-50 rounded-lg p-4 text-center">
+                        <p id="modalCard2Value" class="text-2xl font-bold text-green-600">0</p>
+                        <p id="modalCard2Label" class="text-sm text-green-500">Total Pairs</p>
+                    </div>
+                    <div id="modalCard3" class="bg-purple-50 rounded-lg p-4 text-center">
+                        <p id="modalCard3Value" class="text-2xl font-bold text-purple-600">0</p>
+                        <p id="modalCard3Label" class="text-sm text-purple-500">Jumlah Artikel</p>
+                    </div>
+                </div>
+
+                <!-- Filters in Modal -->
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="modalSearch" placeholder="Cari artikel..." 
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        onkeyup="filterModalTable()">
+                    <button id="filterModalAll" onclick="setModalStockFilter('all')" 
+                        class="px-4 py-2 text-sm font-medium rounded-lg text-white" style="background: #002A3A;">
+                        📦 Semua
+                    </button>
+                    <button id="filterModalHasStock" onclick="setModalStockFilter('hasStock')" 
+                        class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">
+                        ✅ Ada Stok
+                    </button>
+                    <button id="filterModalNoStock" onclick="setModalStockFilter('noStock')" 
+                        class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">
+                        ❌ Habis
+                    </button>
+                </div>
+
+                <!-- Table in Modal -->
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 sticky top-0">
+                            <tr>
+                                <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">No</th>
+                                <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Kode</th>
+                                <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Nama Artikel</th>
+                                <th class="text-center py-3 px-4 text-sm font-semibold text-gray-600">Tier</th>
+                                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">DDD</th>
+                                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">LJBB</th>
+                                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">MBB</th>
+                                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">Total</th>
+                                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">Pairs</th>
+                                <th class="text-center py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 border-t bg-gray-50 flex justify-between items-center">
+                <span id="modalTableInfo" class="text-sm text-gray-500">Menampilkan 0 artikel</span>
+                <button onclick="closeDetailModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Low Stock Modal -->
+    <div id="lowStockModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b bg-red-50 flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-bold text-red-800">⚠️ Artikel Stok Rendah</h3>
+                    <p class="text-sm text-red-600 mt-1">Artikel dengan stok ≤ 10 box perlu segera di-restock</p>
+                </div>
+                <button onclick="closeLowStockModal()" class="p-2 hover:bg-red-100 rounded-full transition-colors">
+                    <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="px-6 py-4 overflow-y-auto max-h-[60vh]">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-red-50 sticky top-0">
+                            <tr>
+                                <th class="text-left py-3 px-4 text-sm font-semibold text-red-800">No</th>
+                                <th class="text-left py-3 px-4 text-sm font-semibold text-red-800">Kode</th>
+                                <th class="text-left py-3 px-4 text-sm font-semibold text-red-800">Nama Artikel</th>
+                                <th class="text-center py-3 px-4 text-sm font-semibold text-red-800">Tier</th>
+                                <th class="text-right py-3 px-4 text-sm font-semibold text-red-800">DDD</th>
+                                <th class="text-right py-3 px-4 text-sm font-semibold text-red-800">LJBB</th>
+                                <th class="text-right py-3 px-4 text-sm font-semibold text-red-800">MBB</th>
+                                <th class="text-right py-3 px-4 text-sm font-semibold text-red-800">Total</th>
+                                <th class="text-center py-3 px-4 text-sm font-semibold text-red-800">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lowStockTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 border-t bg-gray-50 flex justify-between items-center">
+                <span id="lowStockTableInfo" class="text-sm text-gray-500">Menampilkan 0 artikel</span>
+                <button onclick="closeLowStockModal()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // KONFIGURASI
+        // ==========================================
+        const SPREADSHEET_ID = '1CLbpcsBiN8GsC2RbiKMN73rlTdLjriQucXhD-LoGlq4';
+        const API_KEY = 'AIzaSyBLmrYiydwSWdipHjUUnpXuC4Ruc_fEB7A';
+        
+        // Sheet names
+        const SHEETS = {
+            REKAPAN: 'Rekapan Box',
+            TRANSAKSI_DDD: 'Transaksi DDD',
+            TRANSAKSI_LJBB: 'Transaksi LJBB',
+            TRANSAKSI_MBB: 'Transaksi MBB'
+        };
+        
+        const MAX_CAPACITY = 10000; // Kapasitas gudang 10,000 box
+        const LOW_STOCK_THRESHOLD = 10; // Batas stok rendah
+
+        // ==========================================
+        // DATA STORAGE
+        // ==========================================
+        let stockData = {
+            articles: [],
+            transaksiIn: [],
+            transaksiOut: [],
+            summary: {
+                totalBox: 0,
+                boxDDD: 0,
+                boxLJBB: 0,
+                boxMBB: 0,
+                totalPairs: 0,
+                totalArtikel: 0
+            },
+            transaksiSummary: {
+                inDDD: 0, outDDD: 0,
+                inLJBB: 0, outLJBB: 0,
+                inMBB: 0, outMBB: 0
+            },
+            tierBreakdown: [],
+            gudangList: []
+        };
+
+        // Pagination
+        let currentTransaksiTab = 'in';
+        let transaksiPage = 1;
+        let artikelPage = 1;
+        const itemsPerPage = 15;
+        let filteredTransaksi = [];
+        let filteredArtikel = [];
+
+        // ==========================================
+        // FETCH FUNCTIONS
+        // ==========================================
+        async function fetchSheetData(sheetName, range) {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}!${range}?key=${API_KEY}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    console.error(`Error fetching ${sheetName}: ${response.status}`);
+                    return [];
+                }
+                const data = await response.json();
+                return data.values || [];
+            } catch (error) {
+                console.error(`Error fetching ${sheetName}:`, error);
+                return [];
+            }
+        }
+
+        // Parse Indonesian number format
+        function parseNumber(val) {
+            if (!val) return 0;
+            const str = val.toString().replace(/\./g, '').replace(',', '.');
+            return Math.round(parseFloat(str) || 0);
+        }
+
+        async function loadDataFromSheets() {
+            showLoading(true);
+            
+            const loadingTimeout = setTimeout(() => {
+                showLoading(false);
+            }, 30000);
+            
+            try {
+                console.log('Loading data...');
+                
+                // 1. Fetch Rekapan Box (A7:J1000)
+                const rekapanData = await fetchSheetData(SHEETS.REKAPAN, 'A7:J1000');
+                console.log('Rekapan rows:', rekapanData.length);
+                
+                // 2. Fetch all Transaksi sheets (start from row 5, more rows)
+                const [transaksiDDD, transaksiLJBB, transaksiMBB] = await Promise.all([
+                    fetchSheetData(SHEETS.TRANSAKSI_DDD, 'A5:H2000'),
+                    fetchSheetData(SHEETS.TRANSAKSI_LJBB, 'A5:H2000'),
+                    fetchSheetData(SHEETS.TRANSAKSI_MBB, 'A5:H2000')
+                ]);
+                console.log('Raw Transaksi DDD:', transaksiDDD.length, 'LJBB:', transaksiLJBB.length, 'MBB:', transaksiMBB.length);
+                
+                // Parse Rekapan
+                parseRekapanData(rekapanData);
+                
+                // Parse Transaksi
+                parseTransaksiData('DDD', transaksiDDD);
+                parseTransaksiData('LJBB', transaksiLJBB);
+                parseTransaksiData('MBB', transaksiMBB);
+                
+                // Calculate summaries
+                calculateSummaries();
+                
+                // Update UI
+                updateDashboard();
+                updateLastRefresh();
+                
+                console.log('Data loaded:', stockData);
+                
+            } catch (error) {
+                console.error('Error:', error);
+            } finally {
+                clearTimeout(loadingTimeout);
+                showLoading(false);
+            }
+        }
+
+        function parseRekapanData(data) {
+            stockData.articles = [];
+            
+            data.forEach((row, index) => {
+                // Skip if no kode artikel (column B = index 1)
+                if (!row || !row[1] || row[1].toString().trim() === '') return;
+                
+                const kode = row[1].toString().trim();
+                
+                // Skip header rows
+                if (kode.toLowerCase().includes('kode') || kode.toLowerCase().includes('artikel')) return;
+                
+                const nama = row[2] ? row[2].toString() : '';
+                const tier = parseInt(row[3]) || 1;
+                const boxDDD = parseNumber(row[4]);
+                const boxLJBB = parseNumber(row[5]);
+                const boxMBB = parseNumber(row[6]);
+                const total = parseNumber(row[7]) || (boxDDD + boxLJBB + boxMBB);
+                const pairs = parseNumber(row[8]) || (total * 12);
+                
+                stockData.articles.push({
+                    no: stockData.articles.length + 1,
+                    kode,
+                    nama,
+                    tier,
+                    boxDDD,
+                    boxLJBB,
+                    boxMBB,
+                    total,
+                    pairs
+                });
+            });
+            
+            console.log('Parsed articles:', stockData.articles.length);
+        }
+
+        function parseTransaksiData(entity, data) {
+            let entityIn = 0;
+            let entityOut = 0;
+            let rowsParsed = 0;
+            
+            console.log(`Parsing ${entity} transaksi, total rows: ${data.length}`);
+            
+            data.forEach((row, index) => {
+                // Skip empty rows
+                if (!row || row.length < 2) return;
+                
+                // Column mapping: A=No(0), B=Tanggal(1), C=Artikel(2), D=Nama(3), E=IN(4), F=OUT(5), G=Asal(6), H=Terima(7)
+                const noVal = row[0] ? row[0].toString().trim() : '';
+                const tanggal = row[1] ? row[1].toString().trim() : '';
+                const kode = row[2] ? row[2].toString().trim() : '';
+                
+                // Skip header rows
+                if (tanggal.toLowerCase().includes('tanggal')) return;
+                if (kode.toLowerCase().includes('artikel') || kode.toLowerCase().includes('nama')) return;
+                if (noVal.toLowerCase().includes('no')) return;
+                if (noVal.toLowerCase().includes('total') || tanggal.toLowerCase().includes('total')) return;
+                
+                // Skip if no tanggal or kode
+                if (!tanggal || !kode) return;
+                
+                // More flexible date validation - accept various formats
+                // DD/MM/YY, DD/MM/YYYY, or numeric
+                const isValidDate = tanggal.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/) || 
+                                   (!isNaN(parseInt(noVal)) && tanggal.length > 0);
+                
+                if (!isValidDate) return;
+                
+                const nama = row[3] ? row[3].toString() : '';
+                const qtyIn = parseNumber(row[4]);
+                const qtyOut = parseNumber(row[5]);
+                const gudangAsal = row[6] ? row[6].toString().trim() : '';
+                const gudangTerima = row[7] ? row[7].toString().trim() : '';
+                
+                // Skip if both IN and OUT are 0
+                if (qtyIn === 0 && qtyOut === 0) return;
+                
+                rowsParsed++;
+                
+                // Debug - log more rows
+                if (rowsParsed <= 5 || (qtyIn > 0 && entityIn < 50)) {
+                    console.log(`${entity} Row ${rowsParsed}: no=${noVal}, tanggal=${tanggal}, kode=${kode}, IN=${qtyIn}, OUT=${qtyOut}`);
+                }
+                
+                if (qtyIn > 0) {
+                    stockData.transaksiIn.push({
+                        tanggal,
+                        entity,
+                        kode,
+                        nama,
+                        qty: qtyIn,
+                        gudangAsal,
+                        gudangTerima
+                    });
+                    
+                    entityIn += qtyIn;
+                    
+                    // Collect gudang for filter
+                    if (gudangAsal && !stockData.gudangList.includes(gudangAsal)) {
+                        stockData.gudangList.push(gudangAsal);
+                    }
+                    if (gudangTerima && !stockData.gudangList.includes(gudangTerima)) {
+                        stockData.gudangList.push(gudangTerima);
+                    }
+                }
+                
+                if (qtyOut > 0) {
+                    stockData.transaksiOut.push({
+                        tanggal,
+                        entity,
+                        kode,
+                        nama,
+                        qty: qtyOut,
+                        gudangAsal,
+                        gudangTerima
+                    });
+                    
+                    entityOut += qtyOut;
+                    
+                    // Collect gudang for filter
+                    if (gudangAsal && !stockData.gudangList.includes(gudangAsal)) {
+                        stockData.gudangList.push(gudangAsal);
+                    }
+                    if (gudangTerima && !stockData.gudangList.includes(gudangTerima)) {
+                        stockData.gudangList.push(gudangTerima);
+                    }
+                }
+            });
+            
+            // Update entity summary
+            if (entity === 'DDD') {
+                stockData.transaksiSummary.inDDD = entityIn;
+                stockData.transaksiSummary.outDDD = entityOut;
+            } else if (entity === 'LJBB') {
+                stockData.transaksiSummary.inLJBB = entityIn;
+                stockData.transaksiSummary.outLJBB = entityOut;
+            } else if (entity === 'MBB') {
+                stockData.transaksiSummary.inMBB = entityIn;
+                stockData.transaksiSummary.outMBB = entityOut;
+            }
+            
+            console.log(`${entity} FINAL: Rows parsed=${rowsParsed}, Total IN=${entityIn}, Total OUT=${entityOut}`);
+            console.log(`Total transaksiIn array: ${stockData.transaksiIn.length}, transaksiOut array: ${stockData.transaksiOut.length}`);
+        }
+
+        function calculateSummaries() {
+            // Calculate totals from articles
+            let totalDDD = 0, totalLJBB = 0, totalMBB = 0, totalPairs = 0;
+            const tierMap = {};
+            
+            stockData.articles.forEach(article => {
+                totalDDD += article.boxDDD;
+                totalLJBB += article.boxLJBB;
+                totalMBB += article.boxMBB;
+                totalPairs += article.pairs;
+                
+                // Tier breakdown
+                const tier = article.tier || 1;
+                if (!tierMap[tier]) {
+                    tierMap[tier] = { tier, artikel: 0, box: 0, pairs: 0 };
+                }
+                tierMap[tier].artikel++;
+                tierMap[tier].box += article.total;
+                tierMap[tier].pairs += article.pairs;
+            });
+            
+            stockData.summary = {
+                totalBox: totalDDD + totalLJBB + totalMBB,
+                boxDDD: totalDDD,
+                boxLJBB: totalLJBB,
+                boxMBB: totalMBB,
+                totalPairs,
+                totalArtikel: stockData.articles.length
+            };
+            
+            // Calculate tier breakdown with percentage
+            const totalBox = stockData.summary.totalBox || 1;
+            stockData.tierBreakdown = Object.values(tierMap)
+                .map(t => ({
+                    ...t,
+                    percent: Math.round((t.box / totalBox) * 100)
+                }))
+                .sort((a, b) => a.tier - b.tier);
+        }
+
+        // ==========================================
+        // UPDATE UI
+        // ==========================================
+        function updateDashboard() {
+            const fmt = (n) => n.toLocaleString('id-ID');
+            
+            // Summary cards
+            document.getElementById('totalBoxAll').textContent = fmt(stockData.summary.totalBox);
+            document.getElementById('boxBreakdown').textContent = 
+                `DDD: ${fmt(stockData.summary.boxDDD)} | LJBB: ${fmt(stockData.summary.boxLJBB)} | MBB: ${fmt(stockData.summary.boxMBB)}`;
+            
+            const utilization = ((stockData.summary.totalBox / MAX_CAPACITY) * 100).toFixed(1);
+            document.getElementById('utilization').textContent = utilization + '%';
+            document.getElementById('maxCapacity').textContent = fmt(MAX_CAPACITY);
+            
+            document.getElementById('totalPairs').textContent = fmt(stockData.summary.totalPairs);
+            document.getElementById('totalArtikel').textContent = fmt(stockData.summary.totalArtikel);
+            
+            // Entity cards
+            document.getElementById('boxDDD').textContent = fmt(stockData.summary.boxDDD);
+            document.getElementById('boxLJBB').textContent = fmt(stockData.summary.boxLJBB);
+            document.getElementById('boxMBB').textContent = fmt(stockData.summary.boxMBB);
+            
+            document.getElementById('pairsDDD').textContent = fmt(stockData.summary.boxDDD * 12);
+            document.getElementById('pairsLJBB').textContent = fmt(stockData.summary.boxLJBB * 12);
+            document.getElementById('pairsMBB').textContent = fmt(stockData.summary.boxMBB * 12);
+            
+            document.getElementById('inDDD').textContent = fmt(stockData.transaksiSummary.inDDD);
+            document.getElementById('outDDD').textContent = fmt(stockData.transaksiSummary.outDDD);
+            document.getElementById('inLJBB').textContent = fmt(stockData.transaksiSummary.inLJBB);
+            document.getElementById('outLJBB').textContent = fmt(stockData.transaksiSummary.outLJBB);
+            document.getElementById('inMBB').textContent = fmt(stockData.transaksiSummary.inMBB);
+            document.getElementById('outMBB').textContent = fmt(stockData.transaksiSummary.outMBB);
+            
+            // Update gudang filter
+            updateGudangFilter();
+            
+            // Update charts
+            updateCharts();
+            updateTrendChart();
+            
+            // Check low stock
+            checkLowStock();
+            
+            // Update tables
+            filteredTransaksi = currentTransaksiTab === 'in' ? [...stockData.transaksiIn] : [...stockData.transaksiOut];
+            filteredArtikel = [...stockData.articles];
+            
+            updateTransaksiTable();
+            updateArtikelTable();
+        }
+
+        function updateGudangFilter() {
+            const select = document.getElementById('filterGudang');
+            select.innerHTML = '<option value="all">Semua Tujuan/Asal</option>';
+            
+            stockData.gudangList.sort().forEach(gudang => {
+                const option = document.createElement('option');
+                option.value = gudang;
+                option.textContent = gudang;
+                select.appendChild(option);
+            });
+        }
+
+        function updateCharts() {
+            // Entity Chart - Full Pie with percentage labels
+            const entityCtx = document.getElementById('entityChart');
+            if (window.entityChartInstance) window.entityChartInstance.destroy();
+            
+            const totalAllBox = stockData.summary.boxDDD + stockData.summary.boxLJBB + stockData.summary.boxMBB;
+            const percentDDD = totalAllBox > 0 ? ((stockData.summary.boxDDD / totalAllBox) * 100).toFixed(1) : 0;
+            const percentLJBB = totalAllBox > 0 ? ((stockData.summary.boxLJBB / totalAllBox) * 100).toFixed(1) : 0;
+            const percentMBB = totalAllBox > 0 ? ((stockData.summary.boxMBB / totalAllBox) * 100).toFixed(1) : 0;
+            
+            window.entityChartInstance = new Chart(entityCtx, {
+                type: 'pie',
+                data: {
+                    labels: [
+                        `DDD (${percentDDD}%)`, 
+                        `LJBB (${percentLJBB}%)`, 
+                        `MBB (${percentMBB}%)`
+                    ],
+                    datasets: [{
+                        data: [stockData.summary.boxDDD, stockData.summary.boxLJBB, stockData.summary.boxMBB],
+                        backgroundColor: ['#002A3A', '#00E273', '#f59e0b'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { 
+                            position: 'bottom',
+                            labels: {
+                                font: { size: 12, weight: 'bold' },
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw.toLocaleString('id-ID');
+                                    const percent = totalAllBox > 0 ? ((context.raw / totalAllBox) * 100).toFixed(1) : 0;
+                                    return `${context.label.split(' ')[0]}: ${value} box (${percent}%)`;
+                                }
+                            }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const entities = ['DDD', 'LJBB', 'MBB'];
+                            openEntityModal(entities[index]);
+                        }
+                    },
+                    onHover: (event, elements) => {
+                        event.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+                    }
+                }
+            });
+            
+            // Tier Chart - Clickable
+            const tierCtx = document.getElementById('tierChart');
+            if (window.tierChartInstance) window.tierChartInstance.destroy();
+            
+            if (stockData.tierBreakdown.length > 0) {
+                const tierColors = stockData.tierBreakdown.map((t, i) => {
+                    const colors = ['#002A3A', '#00E273', '#003d52', '#33e88f', '#00c264', '#f59e0b', '#6366f1', '#00d670'];
+                    return colors[i % colors.length];
+                });
+                
+                window.tierChartInstance = new Chart(tierCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: stockData.tierBreakdown.map(t => 'Tier ' + t.tier),
+                        datasets: [{
+                            label: 'Total Box',
+                            data: stockData.tierBreakdown.map(t => t.box),
+                            backgroundColor: tierColors,
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    afterLabel: function(context) {
+                                        const tierData = stockData.tierBreakdown[context.dataIndex];
+                                        return `Artikel: ${tierData.artikel}\nKlik untuk detail`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                const tierNumber = stockData.tierBreakdown[index].tier;
+                                openTierModal(tierNumber);
+                            }
+                        },
+                        onHover: (event, elements) => {
+                            event.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+                        }
+                    }
+                });
+            }
+        }
+
+        // ==========================================
+        // TRANSAKSI TABLE
+        // ==========================================
+        function setTransaksiTab(tab) {
+            currentTransaksiTab = tab;
+            transaksiPage = 1;
+            
+            // Update tab styles
+            document.getElementById('tabIn').className = tab === 'in' 
+                ? 'px-4 py-2 rounded-lg text-sm font-medium tab-active'
+                : 'px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700';
+            document.getElementById('tabOut').className = tab === 'out'
+                ? 'px-4 py-2 rounded-lg text-sm font-medium tab-active'
+                : 'px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700';
+            
+            filterTransaksi();
+        }
+
+        function filterTransaksi() {
+            const search = document.getElementById('searchTransaksi').value.toLowerCase();
+            const entity = document.getElementById('filterEntity').value;
+            const gudang = document.getElementById('filterGudang').value;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            
+            const sourceData = currentTransaksiTab === 'in' ? stockData.transaksiIn : stockData.transaksiOut;
+            
+            filteredTransaksi = sourceData.filter(t => {
+                const matchSearch = !search || 
+                    t.kode.toLowerCase().includes(search) || 
+                    t.nama.toLowerCase().includes(search);
+                const matchEntity = entity === 'all' || t.entity === entity;
+                const matchGudang = gudang === 'all' || 
+                    t.gudangAsal === gudang || 
+                    t.gudangTerima === gudang;
+                
+                // Date filter - convert DD/MM/YY to comparable format
+                let matchDate = true;
+                if (dateFrom || dateTo) {
+                    const dateParts = t.tanggal.split('/');
+                    if (dateParts.length === 3) {
+                        // Convert DD/MM/YY to YYYY-MM-DD
+                        let year = dateParts[2];
+                        if (year.length === 2) year = '20' + year;
+                        const tDate = `${year}-${dateParts[1].padStart(2,'0')}-${dateParts[0].padStart(2,'0')}`;
+                        
+                        if (dateFrom && tDate < dateFrom) matchDate = false;
+                        if (dateTo && tDate > dateTo) matchDate = false;
+                    }
+                }
+                
+                return matchSearch && matchEntity && matchGudang && matchDate;
+            });
+            
+            transaksiPage = 1;
+            updateTransaksiTable();
+        }
+
+        function resetTransaksiFilter() {
+            document.getElementById('searchTransaksi').value = '';
+            document.getElementById('filterEntity').value = 'all';
+            document.getElementById('filterGudang').value = 'all';
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value = '';
+            filterTransaksi();
+        }
+
+        function updateTransaksiTable() {
+            const tbody = document.getElementById('transaksiTableBody');
+            tbody.innerHTML = '';
+            
+            const start = (transaksiPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const pageData = filteredTransaksi.slice(start, end);
+            
+            // Calculate subtotal for filtered data
+            const subtotal = filteredTransaksi.reduce((sum, t) => sum + t.qty, 0);
+            
+            if (pageData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-gray-400">Tidak ada data transaksi</td></tr>`;
+            } else {
+                pageData.forEach((t, i) => {
+                    const entityColors = {
+                        'DDD': 'bg-blue-100 text-blue-800',
+                        'LJBB': 'bg-green-100 text-green-800',
+                        'MBB': 'bg-amber-100 text-amber-800'
+                    };
+                    
+                    const row = document.createElement('tr');
+                    row.className = 'border-b hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="py-3 px-4 text-sm">${start + i + 1}</td>
+                        <td class="py-3 px-4 text-sm">${t.tanggal}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-1 rounded text-xs font-medium ${entityColors[t.entity] || 'bg-gray-100'}">${t.entity}</span>
+                        </td>
+                        <td class="py-3 px-4 text-sm font-medium">${t.kode}</td>
+                        <td class="py-3 px-4 text-sm">${t.nama}</td>
+                        <td class="py-3 px-4 text-sm text-right font-semibold ${currentTransaksiTab === 'in' ? 'text-green-600' : 'text-red-600'}">
+                            ${currentTransaksiTab === 'in' ? '+' : '-'}${t.qty}
+                        </td>
+                        <td class="py-3 px-4 text-sm">${t.gudangAsal || '-'}</td>
+                        <td class="py-3 px-4 text-sm">${t.gudangTerima || '-'}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+            
+            // Update info and subtotal
+            const totalPages = Math.ceil(filteredTransaksi.length / itemsPerPage) || 1;
+            document.getElementById('transaksiInfo').textContent = 
+                `Menampilkan ${pageData.length} dari ${filteredTransaksi.length} transaksi`;
+            document.getElementById('transaksiPageInfo').textContent = `${transaksiPage} / ${totalPages}`;
+            
+            // Update subtotal with color based on tab
+            const subtotalEl = document.getElementById('transaksiSubtotal');
+            const subtotalColor = currentTransaksiTab === 'in' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+            subtotalEl.className = `text-sm font-semibold px-3 py-1 rounded-lg ${subtotalColor}`;
+            subtotalEl.textContent = `Total Qty: ${currentTransaksiTab === 'in' ? '+' : '-'}${subtotal.toLocaleString('id-ID')}`;
+            
+            document.getElementById('btnPrevTrx').disabled = transaksiPage <= 1;
+            document.getElementById('btnNextTrx').disabled = transaksiPage >= totalPages;
+        }
+
+        function prevTransaksiPage() {
+            if (transaksiPage > 1) {
+                transaksiPage--;
+                updateTransaksiTable();
+            }
+        }
+
+        function nextTransaksiPage() {
+            const totalPages = Math.ceil(filteredTransaksi.length / itemsPerPage);
+            if (transaksiPage < totalPages) {
+                transaksiPage++;
+                updateTransaksiTable();
+            }
+        }
+
+        // ==========================================
+        // ARTIKEL TABLE
+        // ==========================================
+        function filterArtikel() {
+            const search = document.getElementById('searchArtikel').value.toLowerCase();
+            const tier = document.getElementById('filterTier').value;
+            const stock = document.getElementById('filterStock').value;
+            const entity = document.getElementById('filterEntityArtikel').value;
+            
+            filteredArtikel = stockData.articles.filter(a => {
+                const matchSearch = !search || 
+                    a.kode.toLowerCase().includes(search) || 
+                    a.nama.toLowerCase().includes(search);
+                const matchTier = tier === 'all' || a.tier === parseInt(tier);
+                
+                // Stock filter with low stock option
+                let matchStock = true;
+                if (stock === 'hasStock') {
+                    matchStock = a.total > 0;
+                } else if (stock === 'lowStock') {
+                    matchStock = a.total > 0 && a.total <= LOW_STOCK_THRESHOLD;
+                } else if (stock === 'noStock') {
+                    matchStock = a.total === 0;
+                }
+                
+                const matchEntity = entity === 'all' ||
+                    (entity === 'DDD' && a.boxDDD > 0) ||
+                    (entity === 'LJBB' && a.boxLJBB > 0) ||
+                    (entity === 'MBB' && a.boxMBB > 0);
+                
+                return matchSearch && matchTier && matchStock && matchEntity;
+            });
+            
+            artikelPage = 1;
+            updateArtikelTable();
+        }
+
+        function updateArtikelTable() {
+            const tbody = document.getElementById('artikelTableBody');
+            tbody.innerHTML = '';
+            
+            const start = (artikelPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const pageData = filteredArtikel.slice(start, end);
+            
+            if (pageData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-gray-400">Tidak ada artikel</td></tr>`;
+            } else {
+                pageData.forEach((a, i) => {
+                    const tierColors = {
+                        1: 'bg-blue-900 text-white',
+                        2: 'bg-green-500 text-white',
+                        3: 'bg-blue-700 text-white',
+                        4: 'bg-green-400 text-gray-900'
+                    };
+                    
+                    // Low stock highlighting
+                    const isLowStock = a.total > 0 && a.total <= LOW_STOCK_THRESHOLD;
+                    const isCritical = a.total > 0 && a.total <= 3;
+                    let rowClass = 'border-b hover:bg-gray-50';
+                    if (isCritical) {
+                        rowClass = 'border-b bg-red-50 hover:bg-red-100';
+                    } else if (isLowStock) {
+                        rowClass = 'border-b bg-yellow-50 hover:bg-yellow-100';
+                    }
+                    
+                    // Status badge
+                    let statusClass, statusText;
+                    if (a.total === 0) {
+                        statusClass = 'bg-red-100 text-red-800';
+                        statusText = 'Habis';
+                    } else if (isCritical) {
+                        statusClass = 'bg-red-100 text-red-800';
+                        statusText = '⚠️ Kritis';
+                    } else if (isLowStock) {
+                        statusClass = 'bg-yellow-100 text-yellow-800';
+                        statusText = '⚠️ Rendah';
+                    } else {
+                        statusClass = 'bg-green-100 text-green-800';
+                        statusText = 'Ada';
+                    }
+                    
+                    const row = document.createElement('tr');
+                    row.className = rowClass;
+                    row.innerHTML = `
+                        <td class="py-3 px-4 text-sm">${start + i + 1}</td>
+                        <td class="py-3 px-4 text-sm font-medium text-blue-600">${a.kode}</td>
+                        <td class="py-3 px-4 text-sm">${a.nama}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2 py-1 rounded text-xs font-medium ${tierColors[a.tier] || 'bg-gray-200'}">${a.tier}</span>
+                        </td>
+                        <td class="py-3 px-4 text-sm text-right">${a.boxDDD.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right">${a.boxLJBB.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right">${a.boxMBB.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right font-semibold ${isLowStock ? 'text-red-600' : ''}">${a.total.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right">${a.pairs.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2 py-1 rounded text-xs font-medium ${statusClass}">
+                                ${statusText}
+                            </span>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+            
+            // Update info
+            const totalPages = Math.ceil(filteredArtikel.length / itemsPerPage) || 1;
+            document.getElementById('artikelInfo').textContent = 
+                `Menampilkan ${start + 1}-${Math.min(end, filteredArtikel.length)} dari ${filteredArtikel.length} artikel`;
+            document.getElementById('artikelPageInfo').textContent = `${artikelPage} / ${totalPages}`;
+            
+            document.getElementById('btnPrevArt').disabled = artikelPage <= 1;
+            document.getElementById('btnNextArt').disabled = artikelPage >= totalPages;
+        }
+
+        function prevArtikelPage() {
+            if (artikelPage > 1) {
+                artikelPage--;
+                updateArtikelTable();
+            }
+        }
+
+        function nextArtikelPage() {
+            const totalPages = Math.ceil(filteredArtikel.length / itemsPerPage);
+            if (artikelPage < totalPages) {
+                artikelPage++;
+                updateArtikelTable();
+            }
+        }
+
+        // ==========================================
+        // UTILITIES
+        // ==========================================
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        }
+
+        function updateLastRefresh() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = 
+                `Update: ${now.toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+        }
+
+        function refreshData() {
+            // Reset data
+            stockData.transaksiIn = [];
+            stockData.transaksiOut = [];
+            stockData.transaksiSummary = { inDDD: 0, outDDD: 0, inLJBB: 0, outLJBB: 0, inMBB: 0, outMBB: 0 };
+            stockData.gudangList = [];
+            
+            loadDataFromSheets();
+        }
+
+        // Auto refresh every 5 minutes
+        setInterval(refreshData, 5 * 60 * 1000);
+
+        // ==========================================
+        // MODAL FUNCTIONS
+        // ==========================================
+        let currentModalData = [];
+        let modalStockFilter = 'all';
+        let currentModalType = ''; // 'tier' or 'entity'
+        let currentModalValue = ''; // tier number or entity name
+
+        function openTierModal(tierNumber) {
+            currentModalType = 'tier';
+            currentModalValue = tierNumber;
+            modalStockFilter = 'all';
+            
+            const tierData = stockData.tierBreakdown.find(t => t.tier === tierNumber);
+            const tierArticles = stockData.articles.filter(a => a.tier === tierNumber);
+            currentModalData = [...tierArticles];
+            
+            // Color scheme
+            const colors = {
+                1: { bg: '#002A3A', text: 'white' },
+                2: { bg: '#00E273', text: '#002A3A' },
+                3: { bg: '#003d52', text: 'white' },
+                4: { bg: '#33e88f', text: '#002A3A' },
+                5: { bg: '#00c264', text: 'white' },
+                8: { bg: '#00d670', text: '#002A3A' }
+            };
+            const color = colors[tierNumber] || colors[1];
+            
+            // Update header
+            document.getElementById('modalTitle').innerHTML = `
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mr-2" style="background: ${color.bg}; color: ${color.text};">
+                    Tier ${tierNumber}
+                </span>
+                Detail Artikel
+            `;
+            document.getElementById('modalSubtitle').textContent = 
+                `Total: ${tierData.box.toLocaleString('id-ID')} Box | ${tierData.pairs.toLocaleString('id-ID')} Pairs | ${tierData.artikel} Artikel`;
+            
+            // Update cards
+            document.getElementById('modalCard1Value').textContent = tierData.box.toLocaleString('id-ID');
+            document.getElementById('modalCard1Label').textContent = 'Total Box';
+            document.getElementById('modalCard2Value').textContent = tierData.pairs.toLocaleString('id-ID');
+            document.getElementById('modalCard2Label').textContent = 'Total Pairs';
+            document.getElementById('modalCard3Value').textContent = tierData.artikel;
+            document.getElementById('modalCard3Label').textContent = 'Jumlah Artikel';
+            
+            // Reset filters
+            document.getElementById('modalSearch').value = '';
+            
+            // Show stock filter buttons for tier modal
+            document.getElementById('filterModalAll').style.display = 'inline-flex';
+            document.getElementById('filterModalHasStock').style.display = 'inline-flex';
+            document.getElementById('filterModalNoStock').style.display = 'inline-flex';
+            resetModalFilterButtons();
+            
+            // Update table
+            updateDetailModalTable();
+            
+            // Show modal
+            showDetailModal();
+        }
+
+        function openEntityModal(entity) {
+            currentModalType = 'entity';
+            currentModalValue = entity;
+            modalStockFilter = 'all';
+            
+            // Filter articles by entity - include those with stock in this entity
+            let entityArticles;
+            let totalBox, totalPairs;
+            
+            if (entity === 'DDD') {
+                entityArticles = stockData.articles.filter(a => a.boxDDD > 0).map(a => ({
+                    ...a,
+                    entityBox: a.boxDDD,
+                    entityPairs: a.boxDDD * 12
+                }));
+                totalBox = stockData.summary.boxDDD;
+                totalPairs = totalBox * 12;
+            } else if (entity === 'LJBB') {
+                entityArticles = stockData.articles.filter(a => a.boxLJBB > 0).map(a => ({
+                    ...a,
+                    entityBox: a.boxLJBB,
+                    entityPairs: a.boxLJBB * 12
+                }));
+                totalBox = stockData.summary.boxLJBB;
+                totalPairs = totalBox * 12;
+            } else if (entity === 'MBB') {
+                entityArticles = stockData.articles.filter(a => a.boxMBB > 0).map(a => ({
+                    ...a,
+                    entityBox: a.boxMBB,
+                    entityPairs: a.boxMBB * 12
+                }));
+                totalBox = stockData.summary.boxMBB;
+                totalPairs = totalBox * 12;
+            }
+            
+            currentModalData = [...entityArticles];
+            
+            // Color scheme
+            const colors = {
+                'DDD': { bg: '#002A3A', text: 'white' },
+                'LJBB': { bg: '#00E273', text: '#002A3A' },
+                'MBB': { bg: '#f59e0b', text: 'white' }
+            };
+            const color = colors[entity] || colors['DDD'];
+            
+            // Update header
+            document.getElementById('modalTitle').innerHTML = `
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mr-2" style="background: ${color.bg}; color: ${color.text};">
+                    📦 ${entity}
+                </span>
+                Detail Stok
+            `;
+            document.getElementById('modalSubtitle').textContent = 
+                `Total: ${totalBox.toLocaleString('id-ID')} Box | ${totalPairs.toLocaleString('id-ID')} Pairs | ${entityArticles.length} Artikel`;
+            
+            // Update cards
+            document.getElementById('modalCard1Value').textContent = totalBox.toLocaleString('id-ID');
+            document.getElementById('modalCard1Label').textContent = 'Total Box';
+            document.getElementById('modalCard2Value').textContent = totalPairs.toLocaleString('id-ID');
+            document.getElementById('modalCard2Label').textContent = 'Total Pairs';
+            document.getElementById('modalCard3Value').textContent = entityArticles.length;
+            document.getElementById('modalCard3Label').textContent = 'Jumlah Artikel';
+            
+            // Reset search
+            document.getElementById('modalSearch').value = '';
+            
+            // Hide stock filter buttons for entity modal
+            document.getElementById('filterModalAll').style.display = 'none';
+            document.getElementById('filterModalHasStock').style.display = 'none';
+            document.getElementById('filterModalNoStock').style.display = 'none';
+            
+            // Update table with entity-specific view
+            updateEntityModalTable(entity);
+            
+            // Show modal
+            showDetailModal();
+        }
+
+        function showDetailModal() {
+            const modal = document.getElementById('detailModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeDetailModal() {
+            const modal = document.getElementById('detailModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = 'auto';
+        }
+
+        function filterModalTable() {
+            const search = document.getElementById('modalSearch').value.toLowerCase().trim();
+            
+            // Get base data based on modal type
+            let baseData;
+            if (currentModalType === 'tier') {
+                baseData = stockData.articles.filter(a => a.tier === currentModalValue);
+                
+                // Apply search and stock filter
+                currentModalData = baseData.filter(a => {
+                    const matchSearch = !search || 
+                        a.kode.toLowerCase().includes(search) || 
+                        a.nama.toLowerCase().includes(search);
+                    
+                    let matchStock = true;
+                    if (modalStockFilter === 'hasStock') {
+                        matchStock = a.total > 0;
+                    } else if (modalStockFilter === 'noStock') {
+                        matchStock = a.total === 0;
+                    }
+                    
+                    return matchSearch && matchStock;
+                });
+                
+                updateDetailModalTable();
+            } else if (currentModalType === 'entity') {
+                // For entity, get articles with stock in that entity
+                if (currentModalValue === 'DDD') {
+                    baseData = stockData.articles.filter(a => a.boxDDD > 0).map(a => ({
+                        ...a,
+                        entityBox: a.boxDDD,
+                        entityPairs: a.boxDDD * 12
+                    }));
+                } else if (currentModalValue === 'LJBB') {
+                    baseData = stockData.articles.filter(a => a.boxLJBB > 0).map(a => ({
+                        ...a,
+                        entityBox: a.boxLJBB,
+                        entityPairs: a.boxLJBB * 12
+                    }));
+                } else if (currentModalValue === 'MBB') {
+                    baseData = stockData.articles.filter(a => a.boxMBB > 0).map(a => ({
+                        ...a,
+                        entityBox: a.boxMBB,
+                        entityPairs: a.boxMBB * 12
+                    }));
+                }
+                
+                // Apply search filter only (no stock filter for entity)
+                currentModalData = baseData.filter(a => {
+                    return !search || 
+                        a.kode.toLowerCase().includes(search) || 
+                        a.nama.toLowerCase().includes(search);
+                });
+                
+                updateEntityModalTable(currentModalValue);
+            }
+        }
+
+        function setModalStockFilter(filter) {
+            modalStockFilter = filter;
+            
+            // Update button styles
+            const buttons = ['filterModalAll', 'filterModalHasStock', 'filterModalNoStock'];
+            buttons.forEach(id => {
+                const btn = document.getElementById(id);
+                btn.className = 'px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200';
+                btn.style.background = '';
+            });
+            
+            // Highlight active button
+            const activeId = filter === 'all' ? 'filterModalAll' : 
+                            (filter === 'hasStock' ? 'filterModalHasStock' : 'filterModalNoStock');
+            const activeBtn = document.getElementById(activeId);
+            activeBtn.className = 'px-4 py-2 text-sm font-medium rounded-lg text-white';
+            activeBtn.style.background = '#002A3A';
+            
+            filterModalTable();
+        }
+
+        function resetModalFilterButtons() {
+            modalStockFilter = 'all';
+            const btn = document.getElementById('filterModalAll');
+            btn.className = 'px-4 py-2 text-sm font-medium rounded-lg text-white';
+            btn.style.background = '#002A3A';
+            
+            ['filterModalHasStock', 'filterModalNoStock'].forEach(id => {
+                const b = document.getElementById(id);
+                b.className = 'px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200';
+                b.style.background = '';
+            });
+        }
+
+        function updateDetailModalTable() {
+            const tbody = document.getElementById('modalTableBody');
+            tbody.innerHTML = '';
+            
+            // Update table header for tier view (all entities)
+            const thead = document.querySelector('#detailModal thead tr');
+            thead.innerHTML = `
+                <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">No</th>
+                <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Kode</th>
+                <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Nama Artikel</th>
+                <th class="text-center py-3 px-4 text-sm font-semibold text-gray-600">Tier</th>
+                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">DDD</th>
+                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">LJBB</th>
+                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">MBB</th>
+                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">Total</th>
+                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">Pairs</th>
+                <th class="text-center py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
+            `;
+            
+            if (currentModalData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="py-8 text-center text-gray-400">
+                            <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Tidak ada artikel ditemukan
+                        </td>
+                    </tr>
+                `;
+            } else {
+                currentModalData.forEach((a, i) => {
+                    const tierColors = {
+                        1: 'bg-blue-900 text-white',
+                        2: 'bg-green-500 text-white',
+                        3: 'bg-blue-700 text-white',
+                        4: 'bg-green-400 text-gray-900',
+                        5: 'bg-green-600 text-white',
+                        8: 'bg-green-300 text-gray-900'
+                    };
+                    
+                    const row = document.createElement('tr');
+                    row.className = 'border-b hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="py-3 px-4 text-sm">${i + 1}</td>
+                        <td class="py-3 px-4 text-sm font-medium text-blue-600">${a.kode}</td>
+                        <td class="py-3 px-4 text-sm">${a.nama}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2 py-1 rounded text-xs font-medium ${tierColors[a.tier] || 'bg-gray-200'}">${a.tier}</span>
+                        </td>
+                        <td class="py-3 px-4 text-sm text-right">${a.boxDDD.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right">${a.boxLJBB.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right">${a.boxMBB.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right font-semibold">${a.total.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right">${a.pairs.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2 py-1 rounded text-xs font-medium ${a.total > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${a.total > 0 ? 'Ada' : 'Habis'}
+                            </span>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+            
+            // Count stats
+            const hasStock = currentModalData.filter(a => a.total > 0).length;
+            const noStock = currentModalData.filter(a => a.total === 0).length;
+            
+            document.getElementById('modalTableInfo').textContent = 
+                `Menampilkan ${currentModalData.length} artikel (Ada Stok: ${hasStock} | Habis: ${noStock})`;
+        }
+        
+        function updateEntityModalTable(entity) {
+            const tbody = document.getElementById('modalTableBody');
+            tbody.innerHTML = '';
+            
+            // Update table header for entity view (single entity column)
+            const thead = document.querySelector('#detailModal thead tr');
+            thead.innerHTML = `
+                <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">No</th>
+                <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Kode</th>
+                <th class="text-left py-3 px-4 text-sm font-semibold text-gray-600">Nama Artikel</th>
+                <th class="text-center py-3 px-4 text-sm font-semibold text-gray-600">Tier</th>
+                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">Box ${entity}</th>
+                <th class="text-right py-3 px-4 text-sm font-semibold text-gray-600">Pairs</th>
+            `;
+            
+            if (currentModalData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-gray-400">
+                            <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Tidak ada artikel ditemukan
+                        </td>
+                    </tr>
+                `;
+            } else {
+                currentModalData.forEach((a, i) => {
+                    const tierColors = {
+                        1: 'bg-blue-900 text-white',
+                        2: 'bg-green-500 text-white',
+                        3: 'bg-blue-700 text-white',
+                        4: 'bg-green-400 text-gray-900',
+                        5: 'bg-green-600 text-white',
+                        8: 'bg-green-300 text-gray-900'
+                    };
+                    
+                    const row = document.createElement('tr');
+                    row.className = 'border-b hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="py-3 px-4 text-sm">${i + 1}</td>
+                        <td class="py-3 px-4 text-sm font-medium text-blue-600">${a.kode}</td>
+                        <td class="py-3 px-4 text-sm">${a.nama}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2 py-1 rounded text-xs font-medium ${tierColors[a.tier] || 'bg-gray-200'}">${a.tier}</span>
+                        </td>
+                        <td class="py-3 px-4 text-sm text-right font-semibold">${a.entityBox.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right">${a.entityPairs.toLocaleString('id-ID')}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+            
+            document.getElementById('modalTableInfo').textContent = 
+                `Menampilkan ${currentModalData.length} artikel`;
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('detailModal').addEventListener('click', function(e) {
+            if (e.target === this) closeDetailModal();
+        });
+
+        // Close with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeDetailModal();
+                closeLowStockModal();
+            }
+        });
+
+        // ==========================================
+        // TREND CHART FUNCTIONS
+        // ==========================================
+        function updateTrendChart() {
+            const trendCtx = document.getElementById('trendChart');
+            if (!trendCtx) return;
+            
+            if (window.trendChartInstance) window.trendChartInstance.destroy();
+            
+            // Group transactions by date
+            const dailyIn = {};
+            const dailyOut = {};
+            
+            stockData.transaksiIn.forEach(t => {
+                const date = t.tanggal;
+                dailyIn[date] = (dailyIn[date] || 0) + t.qty;
+            });
+            
+            stockData.transaksiOut.forEach(t => {
+                const date = t.tanggal;
+                dailyOut[date] = (dailyOut[date] || 0) + t.qty;
+            });
+            
+            // Get all unique dates and sort them
+            const allDates = [...new Set([...Object.keys(dailyIn), ...Object.keys(dailyOut)])];
+            
+            // Sort dates (DD/MM/YY format)
+            allDates.sort((a, b) => {
+                const [da, ma, ya] = a.split('/').map(Number);
+                const [db, mb, yb] = b.split('/').map(Number);
+                const dateA = new Date(2000 + ya, ma - 1, da);
+                const dateB = new Date(2000 + yb, mb - 1, db);
+                return dateA - dateB;
+            });
+            
+            // Take last 14 days if more than 14 dates
+            const displayDates = allDates.slice(-14);
+            
+            const inData = displayDates.map(d => dailyIn[d] || 0);
+            const outData = displayDates.map(d => dailyOut[d] || 0);
+            
+            window.trendChartInstance = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: displayDates,
+                    datasets: [
+                        {
+                            label: 'Barang Masuk (IN)',
+                            data: inData,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#10b981'
+                        },
+                        {
+                            label: 'Barang Keluar (OUT)',
+                            data: outData,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#ef4444'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw} box`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            title: { display: true, text: 'Jumlah Box' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Tanggal' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==========================================
+        // LOW STOCK FUNCTIONS
+        // ==========================================
+        
+        function checkLowStock() {
+            const lowStockArticles = stockData.articles.filter(a => a.total > 0 && a.total <= LOW_STOCK_THRESHOLD);
+            
+            const alertEl = document.getElementById('lowStockAlert');
+            const countEl = document.getElementById('lowStockCount');
+            
+            if (lowStockArticles.length > 0) {
+                alertEl.classList.remove('hidden');
+                countEl.textContent = lowStockArticles.length;
+            } else {
+                alertEl.classList.add('hidden');
+            }
+        }
+        
+        function openLowStockModal() {
+            const lowStockArticles = stockData.articles
+                .filter(a => a.total > 0 && a.total <= LOW_STOCK_THRESHOLD)
+                .sort((a, b) => a.total - b.total); // Sort by lowest stock first
+            
+            const tbody = document.getElementById('lowStockTableBody');
+            tbody.innerHTML = '';
+            
+            if (lowStockArticles.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="py-8 text-center text-gray-400">
+                            Tidak ada artikel dengan stok rendah
+                        </td>
+                    </tr>
+                `;
+            } else {
+                lowStockArticles.forEach((a, i) => {
+                    const tierColors = {
+                        1: 'bg-blue-900 text-white',
+                        2: 'bg-green-500 text-white',
+                        3: 'bg-blue-700 text-white',
+                        4: 'bg-green-400 text-gray-900',
+                        5: 'bg-green-600 text-white',
+                        8: 'bg-green-300 text-gray-900'
+                    };
+                    
+                    // Determine urgency color based on stock level
+                    let urgencyClass = 'bg-yellow-100 text-yellow-800';
+                    let urgencyText = 'Rendah';
+                    if (a.total <= 3) {
+                        urgencyClass = 'bg-red-100 text-red-800';
+                        urgencyText = 'Kritis';
+                    } else if (a.total <= 5) {
+                        urgencyClass = 'bg-orange-100 text-orange-800';
+                        urgencyText = 'Segera';
+                    }
+                    
+                    const row = document.createElement('tr');
+                    row.className = 'border-b hover:bg-red-50';
+                    row.innerHTML = `
+                        <td class="py-3 px-4 text-sm">${i + 1}</td>
+                        <td class="py-3 px-4 text-sm font-medium text-blue-600">${a.kode}</td>
+                        <td class="py-3 px-4 text-sm">${a.nama}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2 py-1 rounded text-xs font-medium ${tierColors[a.tier] || 'bg-gray-200'}">${a.tier}</span>
+                        </td>
+                        <td class="py-3 px-4 text-sm text-right">${a.boxDDD.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right">${a.boxLJBB.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right">${a.boxMBB.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-sm text-right font-bold text-red-600">${a.total.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2 py-1 rounded text-xs font-medium ${urgencyClass}">${urgencyText}</span>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+            
+            document.getElementById('lowStockTableInfo').textContent = 
+                `Menampilkan ${lowStockArticles.length} artikel dengan stok ≤ ${LOW_STOCK_THRESHOLD} box`;
+            
+            // Show modal
+            const modal = document.getElementById('lowStockModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeLowStockModal() {
+            const modal = document.getElementById('lowStockModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = 'auto';
+        }
+        
+        // Close low stock modal when clicking outside
+        document.getElementById('lowStockModal').addEventListener('click', function(e) {
+            if (e.target === this) closeLowStockModal();
+        });
+
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDataFromSheets();
+        });
+    </script>
+</body>
+</html>
