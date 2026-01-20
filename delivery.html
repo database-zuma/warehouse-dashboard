@@ -363,10 +363,10 @@
 
         <!-- Charts Row -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <!-- Status Distribution -->
+            <!-- Entity Distribution -->
             <div class="bg-white rounded-xl p-4 shadow-sm">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Distribusi Status Pengiriman</h3>
-                <canvas id="statusChart" height="200"></canvas>
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Distribusi per Entitas</h3>
+                <canvas id="entityChart" height="200"></canvas>
             </div>
             <!-- OnTime vs Late -->
             <div class="bg-white rounded-xl p-4 shadow-sm">
@@ -899,22 +899,21 @@
         }
         
         function updateCharts() {
-            // Status Chart
-            const statusCtx = document.getElementById('statusChart');
-            if (window.statusChartInstance) window.statusChartInstance.destroy();
-            
-            const delivered = filteredItems.filter(i => i.status === 'Delivered').length;
-            const intransit = filteredItems.filter(i => i.status === 'In Transit').length;
-            const pending = filteredItems.filter(i => i.status === 'Pending').length;
-            const cancelled = filteredItems.filter(i => i.status === 'Cancelled').length;
-            
-            window.statusChartInstance = new Chart(statusCtx, {
+            // Entity Distribution Chart
+            const entityCtx = document.getElementById('entityChart');
+            if (window.entityChartInstance) window.entityChartInstance.destroy();
+
+            const totalDDD = filteredItems.reduce((sum, i) => sum + (i.qtyDDD || 0), 0);
+            const totalLJBB = filteredItems.reduce((sum, i) => sum + (i.qtyLJBB || 0), 0);
+            const totalMBB = filteredItems.reduce((sum, i) => sum + (i.qtyMBB || 0), 0);
+
+            window.entityChartInstance = new Chart(entityCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Delivered', 'In Transit', 'Pending', 'Cancelled'],
+                    labels: ['DDD', 'LJBB', 'MBB'],
                     datasets: [{
-                        data: [delivered, intransit, pending, cancelled],
-                        backgroundColor: ['#10b981', '#f59e0b', '#6b7280', '#ef4444'],
+                        data: [totalDDD, totalLJBB, totalMBB],
+                        backgroundColor: ['#002A3A', '#00E273', '#0ea5e9'],
                         borderWidth: 2,
                         borderColor: '#fff'
                     }]
@@ -999,11 +998,16 @@
                     
                     // Rimaks badge
                     let rimaksBadge = '-';
-                    const rimaksLower = item.rimaks.toLowerCase();
-                    if (rimaksLower.includes('on') || rimaksLower.includes('time')) {
-                        rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium ontime-badge">On Time</span>';
-                    } else if (rimaksLower.includes('late')) {
-                        rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium late-badge">Late</span>';
+                    if (item.rimaks) {
+                        const rimaksLower = item.rimaks.toLowerCase();
+                        if (rimaksLower.includes('on time') || rimaksLower === 'ontime') {
+                            rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium ontime-badge">On Time</span>';
+                        } else if (rimaksLower.includes('late')) {
+                            rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium late-badge">Late</span>';
+                        } else {
+                            // Tampilkan nilai rimaks yang sebenarnya
+                            rimaksBadge = `<span class="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">${item.rimaks}</span>`;
+                        }
                     }
                     
                     const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
