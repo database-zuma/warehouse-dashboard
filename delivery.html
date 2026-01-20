@@ -590,6 +590,30 @@
             }
             return null;
         }
+
+        // Calculate delivery status based on SLA
+        function calculateDeliveryStatus(item) {
+            // Only calculate for Delivered items
+            if (item.status !== 'Delivered') return null;
+
+            const planDate = parseDate(item.planDate);
+            const arrivalDate = parseDate(item.arrivalDate) || parseDate(item.actualDate);
+
+            if (!planDate || !arrivalDate) return null;
+
+            // Calculate actual days
+            const diffTime = arrivalDate - planDate;
+            const actualDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            // Compare with SLA
+            const sla = item.sla || 0;
+
+            if (actualDays <= sla) {
+                return 'ontime';
+            } else {
+                return 'late';
+            }
+        }
         
         // ==========================================
         // FORM SUBMISSIONS
@@ -865,33 +889,36 @@
             const total = filteredItems.length;
             const delivered = filteredItems.filter(i => i.status === 'Delivered');
             const intransit = filteredItems.filter(i => i.status === 'In Transit');
-            const ontime = filteredItems.filter(i => i.rimaks.toLowerCase().includes('on') || i.rimaks.toLowerCase().includes('time'));
-            const late = filteredItems.filter(i => i.rimaks.toLowerCase().includes('late'));
+
+            // Calculate On Time / Late based on SLA
+            const ontime = filteredItems.filter(i => calculateDeliveryStatus(i) === 'ontime');
+            const late = filteredItems.filter(i => calculateDeliveryStatus(i) === 'late');
+
             const dnpbOk = filteredItems.filter(i => i.dnpb.includes('OK'));
             const dnpbError = filteredItems.filter(i => i.dnpb.includes('Error'));
-            
+
             const totalQty = filteredItems.reduce((sum, i) => sum + (i.qtyTotal || 0), 0);
-            const avgSLA = filteredItems.length > 0 
+            const avgSLA = filteredItems.length > 0
                 ? (filteredItems.reduce((sum, i) => sum + (i.sla || 0), 0) / filteredItems.length).toFixed(1)
                 : 0;
-            
-            const deliveredWithRimaks = delivered.filter(i => i.rimaks).length || 1;
-            
+
+            const deliveredCount = delivered.length || 1;
+
             document.getElementById('totalDelivery').textContent = total.toLocaleString('id-ID');
             document.getElementById('totalQtyAll').textContent = totalQty.toLocaleString('id-ID') + ' box';
-            
+
             document.getElementById('deliveredCount').textContent = delivered.length;
             document.getElementById('deliveredPercent').textContent = total > 0 ? ((delivered.length / total) * 100).toFixed(1) + '%' : '0%';
-            
+
             document.getElementById('intransitCount').textContent = intransit.length;
             document.getElementById('intransitPercent').textContent = total > 0 ? ((intransit.length / total) * 100).toFixed(1) + '%' : '0%';
-            
-            document.getElementById('ontimeRate').textContent = deliveredWithRimaks > 0 ? ((ontime.length / deliveredWithRimaks) * 100).toFixed(1) + '%' : '0%';
+
+            document.getElementById('ontimeRate').textContent = delivered.length > 0 ? ((ontime.length / deliveredCount) * 100).toFixed(1) + '%' : '0%';
             document.getElementById('ontimeCount').textContent = ontime.length + ' on time';
-            
-            document.getElementById('lateRate').textContent = deliveredWithRimaks > 0 ? ((late.length / deliveredWithRimaks) * 100).toFixed(1) + '%' : '0%';
+
+            document.getElementById('lateRate').textContent = delivered.length > 0 ? ((late.length / deliveredCount) * 100).toFixed(1) + '%' : '0%';
             document.getElementById('lateCount').textContent = late.length + ' late';
-            
+
             document.getElementById('dnpbOkCount').textContent = dnpbOk.length;
             document.getElementById('dnpbErrorCount').textContent = dnpbError.length;
             document.getElementById('totalBoxSummary').textContent = totalQty.toLocaleString('id-ID');
@@ -929,9 +956,10 @@
             // OnTime Chart
             const ontimeCtx = document.getElementById('ontimeChart');
             if (window.ontimeChartInstance) window.ontimeChartInstance.destroy();
-            
-            const ontime = filteredItems.filter(i => i.rimaks.toLowerCase().includes('on') || i.rimaks.toLowerCase().includes('time')).length;
-            const late = filteredItems.filter(i => i.rimaks.toLowerCase().includes('late')).length;
+
+            // Calculate On Time / Late based on SLA
+            const ontime = filteredItems.filter(i => calculateDeliveryStatus(i) === 'ontime').length;
+            const late = filteredItems.filter(i => calculateDeliveryStatus(i) === 'late').length;
             
             window.ontimeChartInstance = new Chart(ontimeCtx, {
                 type: 'pie',
@@ -996,18 +1024,15 @@
                         dnpbBadge = '<span class="px-2 py-1 rounded text-xs font-medium dnpb-error" title="' + (item.ketDNPB || '') + '">Error</span>';
                     }
                     
-                    // Rimaks badge
+                    // Rimaks badge - calculated from SLA
                     let rimaksBadge = '-';
-                    if (item.rimaks) {
-                        const rimaksLower = item.rimaks.toLowerCase();
-                        if (rimaksLower.includes('on time') || rimaksLower === 'ontime') {
-                            rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium ontime-badge">On Time</span>';
-                        } else if (rimaksLower.includes('late')) {
-                            rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium late-badge">Late</span>';
-                        } else {
-                            // Tampilkan nilai rimaks yang sebenarnya
-                            rimaksBadge = `<span class="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">${item.rimaks}</span>`;
-                        }
+                    const deliveryStatus = calculateDeliveryStatus(item);
+                    if (deliveryStatus === 'ontime') {
+                        rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium ontime-badge">On Time</span>';
+                    } else if (deliveryStatus === 'late') {
+                        rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium late-badge">Late</span>';
+                    } else if (item.status !== 'Delivered') {
+                        rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-500">-</span>';
                     }
                     
                     const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
