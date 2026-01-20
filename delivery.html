@@ -593,8 +593,11 @@
 
         // Calculate delivery status based on SLA
         function calculateDeliveryStatus(item) {
-            // Only calculate for Delivered items (case-insensitive)
-            if (!item.status || item.status.toLowerCase() !== 'delivered') return null;
+            // Check if status is "Delivered" or "Sent" (case-insensitive)
+            const status = (item.status || '').toLowerCase();
+            const isDelivered = status === 'delivered' || status === 'sent';
+
+            if (!isDelivered) return null;
 
             const planDate = parseDate(item.planDate);
             const arrivalDate = parseDate(item.arrivalDate) || parseDate(item.actualDate);
@@ -609,13 +612,19 @@
             // Get SLA value (default to 3 days if not set)
             const sla = item.sla || 3;
 
-            console.log(`Delivery: ${item.tujuan}, Plan: ${item.planDate}, Arrival: ${item.arrivalDate}, ActualDays: ${actualDays}, SLA: ${sla}`);
+            console.log(`Delivery: ${item.tujuan}, Plan: ${item.planDate}, Arrival: ${item.arrivalDate || item.actualDate}, ActualDays: ${actualDays}, SLA: ${sla}`);
 
             if (actualDays <= sla) {
                 return 'ontime';
             } else {
                 return 'late';
             }
+        }
+
+        // Helper to check if item is delivered/sent
+        function isItemDelivered(item) {
+            const status = (item.status || '').toLowerCase();
+            return status === 'delivered' || status === 'sent';
         }
         
         // ==========================================
@@ -890,8 +899,11 @@
         // ==========================================
         function updateSummary() {
             const total = filteredItems.length;
-            const delivered = filteredItems.filter(i => i.status === 'Delivered');
-            const intransit = filteredItems.filter(i => i.status === 'In Transit');
+            const delivered = filteredItems.filter(i => isItemDelivered(i));
+            const intransit = filteredItems.filter(i => {
+                const status = (i.status || '').toLowerCase();
+                return status === 'in transit' || status === 'in progress';
+            });
 
             // Calculate On Time / Late based on SLA
             const ontime = filteredItems.filter(i => calculateDeliveryStatus(i) === 'ontime');
@@ -1006,13 +1018,13 @@
                 tbody.innerHTML = pageItems.map((item, idx) => {
                     // Status badge
                     let statusBadge = '';
-                    const statusLower = item.status.toLowerCase();
-                    if (statusLower === 'delivered') {
-                        statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium status-delivered">Delivered</span>';
-                    } else if (statusLower === 'in transit') {
-                        statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium status-intransit">In Transit</span>';
-                    } else if (statusLower === 'pending') {
-                        statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium status-pending">Pending</span>';
+                    const statusLower = (item.status || '').toLowerCase();
+                    if (statusLower === 'delivered' || statusLower === 'sent') {
+                        statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium status-delivered">Sent</span>';
+                    } else if (statusLower === 'in transit' || statusLower === 'in progress') {
+                        statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium status-intransit">In Progress</span>';
+                    } else if (statusLower === 'pending' || statusLower === 'plan') {
+                        statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium status-pending">Plan</span>';
                     } else if (statusLower === 'cancelled') {
                         statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium status-cancelled">Cancelled</span>';
                     } else {
@@ -1030,14 +1042,13 @@
                     // Rimaks badge - calculated from SLA
                     let rimaksBadge = '-';
                     const deliveryStatus = calculateDeliveryStatus(item);
-                    const isDelivered = item.status && item.status.toLowerCase() === 'delivered';
 
                     if (deliveryStatus === 'ontime') {
                         rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium ontime-badge">On Time</span>';
                     } else if (deliveryStatus === 'late') {
                         rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium late-badge">Late</span>';
-                    } else if (isDelivered) {
-                        // Delivered but missing arrival date
+                    } else if (isItemDelivered(item)) {
+                        // Delivered/Sent but missing arrival date
                         rimaksBadge = '<span class="px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700">No Date</span>';
                     }
                     
