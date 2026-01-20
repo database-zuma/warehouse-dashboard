@@ -604,31 +604,32 @@
             }
 
             // Otherwise calculate from SLA
-            return getDeliveryStatus(item);
+            return calculateDeliveryStatus(item);
         }
 
         // Calculate delivery status based on SLA
-        function getDeliveryStatus(item) {
+        // Formula: (Arrival Date - Actual Delivery Date) vs SLA
+        function calculateDeliveryStatus(item) {
             // Check if status is "Delivered" or "Sent" (case-insensitive)
             const status = (item.status || '').toLowerCase();
             const isDelivered = status === 'delivered' || status === 'sent';
 
             if (!isDelivered) return null;
 
-            const planDate = parseDate(item.planDate);
-            const arrivalDate = parseDate(item.arrivalDate) || parseDate(item.actualDate);
+            const actualDate = parseDate(item.actualDate);
+            const arrivalDate = parseDate(item.arrivalDate);
 
-            // If no arrival/actual date, can't calculate
-            if (!planDate || !arrivalDate) return null;
+            // Need both Actual Delivery Date and Arrival Date
+            if (!actualDate || !arrivalDate) return null;
 
-            // Calculate actual days taken
-            const diffTime = arrivalDate - planDate;
-            const actualDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            // Calculate days: Arrival Date - Actual Delivery Date
+            const diffTime = arrivalDate - actualDate;
+            const deliveryDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
             // Get SLA value (default to 3 days if not set)
             const sla = item.sla || 3;
 
-            if (actualDays <= sla) {
+            if (deliveryDays <= sla) {
                 return 'ontime';
             } else {
                 return 'late';
